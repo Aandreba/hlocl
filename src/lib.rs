@@ -1,4 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(arc_unwrap_or_clone)]
+
 pub(crate) extern crate alloc;
 
 macro_rules! flat_mod {
@@ -35,3 +37,4 @@ pub mod queue;
 pub mod context;
 pub mod program;
 pub mod buffer;
+pub mod event;

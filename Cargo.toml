@@ -7,9 +7,12 @@ edition = "2021"
 [features]
 defaults = ["std"]
 std = []
+async = ["futures"]
 
 [dependencies]
 cl-sys = "0.4"
 lazy_static = "1"
 cfg-if = "1"
 bitflags = "1"
+elor = "1"
+futures = { version = "0.3", optional = true }

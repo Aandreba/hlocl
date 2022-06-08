@@ -1,1 +1,1 @@
-flat_mod!(flags, r#unsafe);
+flat_mod!(flags, r#unsafe, array);
