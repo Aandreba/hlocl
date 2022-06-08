@@ -1,6 +1,6 @@
 use core::{mem::MaybeUninit, intrinsics::transmute, num::{NonZeroUsize, NonZeroU32, NonZeroU64}, fmt::Debug};
 use alloc::{vec::Vec, string::{String, FromUtf8Error}};
-use cl_sys::{cl_device_id, clGetDeviceIDs, CL_DEVICE_TYPE_ALL, cl_device_info, clGetDeviceInfo, c_uchar, CL_DEVICE_PLATFORM, cl_uint, CL_DEVICE_ADDRESS_BITS, cl_bool, CL_DEVICE_AVAILABLE, CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, cl_device_fp_config, CL_DEVICE_DOUBLE_FP_CONFIG, CL_DEVICE_ENDIAN_LITTLE, CL_DEVICE_ERROR_CORRECTION_SUPPORT, cl_device_exec_capabilities, CL_EXEC_KERNEL, CL_EXEC_NATIVE_KERNEL, CL_DEVICE_EXECUTION_CAPABILITIES, CL_DEVICE_EXTENSIONS, cl_ulong, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, CL_NONE, CL_READ_ONLY_CACHE, cl_device_mem_cache_type, CL_DEVICE_GLOBAL_MEM_CACHE_TYPE, CL_READ_WRITE_CACHE, CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, CL_DEVICE_GLOBAL_MEM_SIZE, CL_DEVICE_HALF_FP_CONFIG, CL_DEVICE_IMAGE_SUPPORT, size_t, CL_DEVICE_IMAGE2D_MAX_HEIGHT, CL_DEVICE_IMAGE2D_MAX_WIDTH, CL_DEVICE_IMAGE3D_MAX_WIDTH, CL_DEVICE_IMAGE3D_MAX_HEIGHT, CL_DEVICE_IMAGE3D_MAX_DEPTH, CL_DEVICE_LOCAL_MEM_SIZE, CL_LOCAL, CL_GLOBAL, cl_device_local_mem_type, CL_DEVICE_LOCAL_MEM_TYPE, CL_DEVICE_MAX_CLOCK_FREQUENCY, CL_DEVICE_MAX_COMPUTE_UNITS, CL_DEVICE_MAX_CONSTANT_ARGS, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, CL_DEVICE_MAX_MEM_ALLOC_SIZE, CL_DEVICE_MAX_PARAMETER_SIZE, CL_DEVICE_MAX_READ_IMAGE_ARGS, CL_DEVICE_MAX_SAMPLERS, CL_DEVICE_MAX_WORK_GROUP_SIZE, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, CL_DEVICE_MAX_WORK_ITEM_SIZES, CL_DEVICE_MAX_WRITE_IMAGE_ARGS, CL_DEVICE_MEM_BASE_ADDR_ALIGN, CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE, CL_DEVICE_NAME, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG, CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE, CL_DEVICE_PROFILE, CL_DEVICE_PROFILING_TIMER_RESOLUTION, CL_DEVICE_QUEUE_PROPERTIES, CL_DEVICE_SINGLE_FP_CONFIG, cl_device_type, CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_GPU, CL_DEVICE_TYPE_ACCELERATOR, CL_DEVICE_TYPE_CUSTOM, CL_DEVICE_TYPE, CL_DEVICE_VENDOR, CL_DEVICE_VENDOR_ID, CL_DEVICE_VERSION, CL_DRIVER_VERSION};
+use cl_sys::{cl_device_id, clGetDeviceIDs, CL_DEVICE_TYPE_ALL, cl_device_info, clGetDeviceInfo, c_uchar, CL_DEVICE_PLATFORM, cl_uint, CL_DEVICE_ADDRESS_BITS, cl_bool, CL_DEVICE_AVAILABLE, CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, cl_device_fp_config, CL_DEVICE_DOUBLE_FP_CONFIG, CL_DEVICE_ENDIAN_LITTLE, CL_DEVICE_ERROR_CORRECTION_SUPPORT, cl_device_exec_capabilities, CL_EXEC_KERNEL, CL_EXEC_NATIVE_KERNEL, CL_DEVICE_EXECUTION_CAPABILITIES, CL_DEVICE_EXTENSIONS, cl_ulong, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, CL_NONE, CL_READ_ONLY_CACHE, cl_device_mem_cache_type, CL_DEVICE_GLOBAL_MEM_CACHE_TYPE, CL_READ_WRITE_CACHE, CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, CL_DEVICE_GLOBAL_MEM_SIZE, CL_DEVICE_HALF_FP_CONFIG, CL_DEVICE_IMAGE_SUPPORT, size_t, CL_DEVICE_IMAGE2D_MAX_HEIGHT, CL_DEVICE_IMAGE2D_MAX_WIDTH, CL_DEVICE_IMAGE3D_MAX_WIDTH, CL_DEVICE_IMAGE3D_MAX_HEIGHT, CL_DEVICE_IMAGE3D_MAX_DEPTH, CL_DEVICE_LOCAL_MEM_SIZE, CL_LOCAL, CL_GLOBAL, cl_device_local_mem_type, CL_DEVICE_LOCAL_MEM_TYPE, CL_DEVICE_MAX_CLOCK_FREQUENCY, CL_DEVICE_MAX_COMPUTE_UNITS, CL_DEVICE_MAX_CONSTANT_ARGS, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, CL_DEVICE_MAX_MEM_ALLOC_SIZE, CL_DEVICE_MAX_PARAMETER_SIZE, CL_DEVICE_MAX_READ_IMAGE_ARGS, CL_DEVICE_MAX_SAMPLERS, CL_DEVICE_MAX_WORK_GROUP_SIZE, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, CL_DEVICE_MAX_WORK_ITEM_SIZES, CL_DEVICE_MAX_WRITE_IMAGE_ARGS, CL_DEVICE_MEM_BASE_ADDR_ALIGN, CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE, CL_DEVICE_NAME, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG, CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE, CL_DEVICE_PROFILE, CL_DEVICE_PROFILING_TIMER_RESOLUTION, CL_DEVICE_QUEUE_PROPERTIES, CL_DEVICE_SINGLE_FP_CONFIG, cl_device_type, CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_GPU, CL_DEVICE_TYPE_ACCELERATOR, CL_DEVICE_TYPE_CUSTOM, CL_DEVICE_TYPE, CL_DEVICE_VENDOR, CL_DEVICE_VENDOR_ID, CL_DEVICE_VERSION, CL_DRIVER_VERSION, clReleaseDevice, clRetainDevice};
 use crate::{platform::Platform, queue::CommandQueueProps};
 
 lazy_static::lazy_static! {
@@ -9,11 +9,11 @@ lazy_static::lazy_static! {
 
         for platform in Platform::all() {
             let mut cnt = 0;
-            tri_panic!(clGetDeviceIDs(platform.id(), CL_DEVICE_TYPE_ALL, 0, core::ptr::null_mut(), &mut cnt));
+            tri_panic!(clGetDeviceIDs(platform.0, CL_DEVICE_TYPE_ALL, 0, core::ptr::null_mut(), &mut cnt));
             let cnt_size = usize::try_from(cnt).unwrap();
 
             result.reserve(cnt_size);
-            tri_panic!(clGetDeviceIDs(platform.id(), CL_DEVICE_TYPE_ALL, cnt, result.as_mut_ptr().add(result.len()).cast(), core::ptr::null_mut()));
+            tri_panic!(clGetDeviceIDs(platform.0, CL_DEVICE_TYPE_ALL, cnt, result.as_mut_ptr().add(result.len()).cast(), core::ptr::null_mut()));
             result.set_len(result.len() + cnt_size);
         }
 
@@ -23,15 +23,10 @@ lazy_static::lazy_static! {
 
 /// OpenCL device
 #[repr(transparent)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Device (cl_device_id);
+#[derive(PartialEq, Eq, Hash)]
+pub struct Device (pub(crate) cl_device_id);
 
 impl Device {
-    #[inline(always)]
-    pub fn id (&self) -> cl_device_id {
-        self.0
-    }
-
     /// The default compute device address space size specified as an unsigned integer value in bits. Currently supported values are 32 or 64 bits.
     #[inline(always)]
     pub fn address_bits (&self) -> cl_uint {
@@ -376,8 +371,13 @@ impl Device {
     }
 
     #[inline(always)]
+    pub fn first () -> Option<&'static Device> {
+        DEVICES.first()
+    }
+
+    #[inline(always)]
     pub fn from_platform (platform: Platform) -> impl Iterator<Item = Device> {
-        DEVICES.iter().copied().filter(move |x| x.platform() == platform)
+        DEVICES.iter().cloned().filter(move |x| x.platform() == platform)
     }
 
     #[inline]
@@ -401,6 +401,17 @@ impl Device {
             tri_panic!(clGetDeviceInfo(self.0, ty, core::mem::size_of::<T>(), value.as_mut_ptr().cast(), core::ptr::null_mut()));
             value.assume_init()
         }
+    }
+}
+
+impl Clone for Device {
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        unsafe {
+            tri_panic!(clRetainDevice(self.0))
+        }
+
+        Self(self.0)
     }
 }
 
@@ -459,6 +470,15 @@ impl Debug for Device {
         .field("type", &self.ty())
         .field("version", &self.version())
         .finish()
+    }
+}
+
+impl Drop for Device {
+    #[inline(always)]
+    fn drop (&mut self) {
+        unsafe {
+            tri_panic!(clReleaseDevice(self.0));
+        }
     }
 }
 

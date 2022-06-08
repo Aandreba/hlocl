@@ -19,19 +19,9 @@ lazy_static::lazy_static! {
 /// OpenCL platform
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Platform (cl_platform_id);
+pub struct Platform (pub(crate) cl_platform_id);
 
 impl Platform {
-    #[inline(always)]
-    pub fn all () -> &'static [Platform] {
-        &PLATFORMS
-    }
-
-    #[inline(always)]
-    pub fn id (&self) -> cl_platform_id {
-        self.0
-    }
-
     /// OpenCL profile string.
     #[inline(always)]
     pub fn profile (&self) -> String {
@@ -71,8 +61,8 @@ impl Platform {
     }
 
     #[inline(always)]
-    pub(super) fn get_by_id (id: cl_platform_id) -> Option<Platform> {
-        PLATFORMS.iter().copied().find(|p| p.0 == id)
+    pub fn all () -> &'static [Platform] {
+        &PLATFORMS
     }
 
     #[inline]

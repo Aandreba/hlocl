@@ -1,5 +1,7 @@
 use core::{fmt::Display, hint::unreachable_unchecked};
 
+use alloc::string::String;
+
 const ERROR_MESSAGES_1 : &[&str] = &[
     "Device not found",
     "Device not available",
@@ -64,9 +66,48 @@ const ERROR_MESSAGES_2 : &[&str] = &[
     "Invalid device queue"
 ];
 
+#[derive(Debug)]
+pub struct ErrorCL {
+    ty: ErrorType,
+    desc: Option<String>
+}
+
+impl ErrorCL {
+    #[inline(always)]
+    pub fn new (ty: ErrorType, desc: Option<String>) -> Self {
+        Self {
+            ty,
+            desc
+        }
+    }
+
+    #[inline(always)]
+    pub fn ty (&self) -> ErrorType {
+        self.ty
+    }
+}
+
+impl Display for ErrorCL {
+    #[inline(always)]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        if let Some(ref desc) = self.desc {
+            return write!(f, "{}: {desc}", self.ty)
+        }
+
+        Display::fmt(&self.ty, f)
+    }
+}
+
+impl From<i32> for ErrorCL {
+    #[inline(always)]
+    fn from(value: i32) -> Self {
+        Self::new(value.into(), None)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
-pub enum ErrorCL {
+pub enum ErrorType {
     DeviceNotFound = -1,
     DeviceNotAvailable = -2,
     CompilerNotAvailable = -3,
@@ -130,7 +171,7 @@ pub enum ErrorCL {
     NvidiaIllegalBufferAction = -9999
 }
 
-impl Display for ErrorCL {
+impl Display for ErrorType {
     #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let int = -(*self as i32) as usize;
@@ -145,14 +186,14 @@ impl Display for ErrorCL {
     }
 }
 
-impl Into<i32> for ErrorCL {
+impl Into<i32> for ErrorType {
     #[inline(always)]
     fn into(self) -> i32 {
         self as i32
     }
 }
 
-impl From<i32> for ErrorCL {
+impl From<i32> for ErrorType {
     #[inline(always)]
     fn from(value: i32) -> Self {
         match value {
