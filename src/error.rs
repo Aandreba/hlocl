@@ -12,6 +12,7 @@ const ERROR_MESSAGES_1 : &[&str] = &[
     "Profiling info not available",
     "Memory copy overlap",
     "Image format mismatch",
+    "Image format not supported",
     "Build program failure",
     "Map failure",
     "Misaligned sub-buffer offset",

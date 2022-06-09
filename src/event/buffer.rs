@@ -1,6 +1,6 @@
 use core::{borrow::Borrow, pin::Pin};
 use alloc::{vec::Vec, borrow::Cow};
-use cl_sys::{size_t, cl_uint, cl_event, clEnqueueWriteBuffer, clEnqueueCopyBuffer, clEnqueueReadBuffer};
+use cl_sys::{cl_event, clEnqueueWriteBuffer, clEnqueueCopyBuffer, clEnqueueReadBuffer};
 use crate::{prelude::{ErrorCL, CommandQueue}, buffer::{UnsafeBuffer}};
 use super::{BaseEvent, Event};
 
@@ -13,9 +13,9 @@ pub struct CopyBuffer<T: Copy + Unpin> {
 }
 
 impl<T: Copy + Unpin> CopyBuffer<T> {
-    pub unsafe fn new<'a> (queue: &CommandQueue, src_offset: size_t, dst_offset: size_t, len: size_t, src: UnsafeBuffer<T>, dst: UnsafeBuffer<T>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Self, ErrorCL> {
+    pub unsafe fn new<'a> (queue: &CommandQueue, src_offset: usize, dst_offset: usize, len: usize, src: UnsafeBuffer<T>, dst: UnsafeBuffer<T>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Self, ErrorCL> {
         let wait = wait.into_iter().map(|x| x.0).collect::<Vec<_>>();
-        let wait_len = cl_uint::try_from(wait.len()).unwrap();
+        let wait_len = u32::try_from(wait.len()).unwrap();
         let wait = match wait_len {
             0 => core::ptr::null(),
             _ => wait.as_ptr()
@@ -73,11 +73,11 @@ pub struct WriteBuffer<'a, T: Copy + Unpin> {
 }
 
 impl<'a, T: Unpin + Copy> WriteBuffer<'a, T> {
-    pub unsafe fn new<'b> (queue: &CommandQueue, blocking: bool, offset: size_t, src: impl Into<Cow<'a, [T]>>, dst: UnsafeBuffer<T>, wait: impl IntoIterator<Item = &'b BaseEvent>) -> Result<Self, ErrorCL> {
+    pub unsafe fn new<'b> (queue: &CommandQueue, blocking: bool, offset: usize, src: impl Into<Cow<'a, [T]>>, dst: UnsafeBuffer<T>, wait: impl IntoIterator<Item = &'b BaseEvent>) -> Result<Self, ErrorCL> {
         let src = Pin::new(src.into());
 
         let wait = wait.into_iter().map(|x| x.borrow().0).collect::<Vec<_>>();
-        let wait_len = cl_uint::try_from(wait.len()).unwrap();
+        let wait_len = u32::try_from(wait.len()).unwrap();
         let wait = match wait_len {
             0 => core::ptr::null(),
             _ => wait.as_ptr()
@@ -134,9 +134,9 @@ pub struct ReadBuffer<'a, T: Copy + Unpin> {
 }
 
 impl<'a, T: Copy + Unpin> ReadBuffer<'a, T> {
-    pub unsafe fn new<'b> (queue: &CommandQueue, blocking: bool, offset: size_t, src: UnsafeBuffer<T>, dst: &'a mut [T], wait: impl IntoIterator<Item = &'b BaseEvent>) -> Result<Self, ErrorCL> {
+    pub unsafe fn new<'b> (queue: &CommandQueue, blocking: bool, offset: usize, src: UnsafeBuffer<T>, dst: &'a mut [T], wait: impl IntoIterator<Item = &'b BaseEvent>) -> Result<Self, ErrorCL> {
         let wait = wait.into_iter().map(|x| x.0).collect::<Vec<_>>();
-        let wait_len = cl_uint::try_from(wait.len()).unwrap();
+        let wait_len = u32::try_from(wait.len()).unwrap();
         let wait = match wait_len {
             0 => core::ptr::null(),
             _ => wait.as_ptr()

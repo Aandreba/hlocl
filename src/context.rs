@@ -1,5 +1,5 @@
 use alloc::vec::{Vec};
-use cl_sys::{cl_context, cl_context_properties, CL_CONTEXT_PLATFORM, CL_CONTEXT_INTEROP_USER_SYNC, clCreateContext, cl_uint, clReleaseContext, clRetainContext};
+use cl_sys::{cl_context, cl_context_properties, CL_CONTEXT_PLATFORM, CL_CONTEXT_INTEROP_USER_SYNC, clCreateContext, clReleaseContext, clRetainContext};
 use crate::error::ErrorCL;
 use crate::prelude::{Platform, Device};
 
@@ -15,7 +15,7 @@ impl Context {
             None => core::ptr::null_mut()
         };
 
-        let len = cl_uint::try_from(devices.len()).expect("too many devices");
+        let len = u32::try_from(devices.len()).expect("too many devices");
         #[cfg(feature = "std")]
         let pfn_notify = Some(notify);
         #[cfg(not(feature = "std"))]

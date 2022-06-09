@@ -1,4 +1,4 @@
-use cl_sys::{clCreateUserEvent, clSetUserEventStatus, cl_int};
+use cl_sys::{clCreateUserEvent, clSetUserEventStatus};
 use crate::prelude::{ErrorCL, Context};
 use super::{BaseEvent, EventStatus};
 
@@ -25,7 +25,7 @@ impl UserEvent {
     #[inline(always)]
     pub fn set_status (&self, status: EventStatus) -> Result<(), ErrorCL> {
         let err = unsafe {
-            clSetUserEventStatus(self.0.0, status as cl_int)
+            clSetUserEventStatus(self.0.0, status as i32)
         };
 
         if err == 0 {

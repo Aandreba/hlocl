@@ -1,56 +1,33 @@
-use opencl::{prelude::*, buffer::{UnsafeBuffer, ArrayBuffer}, event::Event};
+use opencl::{prelude::*, buffer::{ArrayBuffer, MemFlags}};
 
-const TEST_KERNEL : &'static str = "void kernel add (const int n, __global const float* rhs, __global const float* in, __global float* out) {
+const TEST_KERNEL : &'static str = "void kernel add (const int n, __global const int* rhs, __global const int* in, __global int* out) {
     for (int id = get_global_id(0); id<n; id += get_global_size(0)) {
         out[id] = in[id] + rhs[id];
     }
 }";
 
 #[test]
-fn platforms () {
-    let platforms = Platform::all();
-    println!("{:?}", platforms);
-}
-
-#[test]
-fn devices () {
-    let devices = Device::all();
-    println!("{:?}", devices);
-}
-
-#[test]
-fn context () {
-    let context = Context::new(None, Device::all()).unwrap();
-}
-
-#[test]
-fn program () {
-    let device = Device::all().first().unwrap();
+fn sum () {
+    let device = Device::first().unwrap();
     let ctx = Context::new(None, core::slice::from_ref(device)).unwrap();
     let queue = CommandQueue::new(&ctx, device, None).unwrap();
 
-    let buffer = UnsafeBuffer::<f32>::new(&ctx, 4, None).unwrap();
-    unsafe {
-        let write = buffer.write(&queue, false, 0, vec![1.0, 2.0, 3.0, 4.0], None).unwrap();
-        let read = buffer.read(&queue, true, 0, 4, [write.borrow_base()]).unwrap().wait().unwrap();
-        println!("Read: {read:?}");
-    }
+    let left = ArrayBuffer::new(&ctx, None, &[1, 2, 3, 4, 5]).unwrap();
+    let right = ArrayBuffer::new(&ctx, None, &[6, 7, 8, 9, 10]).unwrap();
+    let result = unsafe { ArrayBuffer::<i32, 5>::uninit(&ctx, MemFlags::READ_ONLY).unwrap() };
 
-    let array = ArrayBuffer::new(&ctx, None, [1, 2]).unwrap();
-    let read = array.get(&queue, 1, []).unwrap().unwrap().wait().unwrap();
-    println!("Value @ 1 is {read}")
-}
-
-#[tokio::test]
-async fn sync () {
-    let device = Device::all().first().unwrap();
-    let ctx = Context::new(None, core::slice::from_ref(device)).unwrap();
-    let queue = CommandQueue::new(&ctx, device, None).unwrap();
-    let buffer = UnsafeBuffer::<f32>::new(&ctx, 1000, None).unwrap();
+    let program = Program::from_source(&ctx, TEST_KERNEL).unwrap();
+    let mut kernel = Kernel::new(&program, "add").unwrap();
 
     unsafe {
-        let write = buffer.write(&queue, false, 0, vec![1.0; 1000], None).unwrap();
-        let read = buffer.read(&queue, false, 0, 1000, [write.borrow_base()]).unwrap().await.unwrap();
-        println!("Read: {:?}", &read[..5]);
+        kernel.set_arg(0, 5i32).unwrap();
+        kernel.set_mem_arg(1, &right).unwrap();
+        kernel.set_mem_arg(2, &left).unwrap();
+        kernel.set_mem_arg(3, &result).unwrap();
     }
+
+    let sum = kernel.enqueue(&queue, &[5, 1, 1], None, []).unwrap();
+    let read = result.to_array(&queue, [&sum]).unwrap();
+
+    println!("{:?}", read.wait());
 }

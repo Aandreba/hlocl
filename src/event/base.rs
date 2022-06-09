@@ -1,6 +1,5 @@
 use core::{mem::MaybeUninit, ptr::addr_of, hash::Hash};
 use cl_sys::{cl_event, cl_event_info, clReleaseEvent, clGetEventInfo, CL_EVENT_COMMAND_QUEUE, CL_EVENT_COMMAND_TYPE, CL_EVENT_COMMAND_EXECUTION_STATUS, clWaitForEvents, clRetainEvent};
-use futures::Future;
 use crate::prelude::ErrorCL;
 use super::Event;
 
@@ -116,7 +115,7 @@ impl Clone for BaseEvent {
 }
 
 #[cfg(feature = "async")]
-impl Future for BaseEvent {
+impl futures::Future for BaseEvent {
     type Output = Result<(), ErrorCL>;
 
     #[inline(always)]
@@ -163,10 +162,8 @@ unsafe impl Send for BaseEvent {}
 unsafe impl Sync for BaseEvent {}
 
 #[cfg(feature = "async")]
+#[no_mangle]
 extern "C" fn notify (_event: cl_event, _status: cl_sys::cl_int, data: *mut cl_sys::c_void) {
-    #[cfg(all(feature = "std", test))]
-    std::println!("Waky waky");
-
     let data = unsafe { Arc::from_raw(data as *const AtomicWaker) };
     data.wake()
 }

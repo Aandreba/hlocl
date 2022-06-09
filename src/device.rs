@@ -1,7 +1,8 @@
 use core::{mem::MaybeUninit, intrinsics::transmute, num::{NonZeroUsize, NonZeroU32, NonZeroU64}, fmt::Debug};
-use alloc::{vec::Vec, string::{String, FromUtf8Error}};
-use cl_sys::{cl_device_id, clGetDeviceIDs, CL_DEVICE_TYPE_ALL, cl_device_info, clGetDeviceInfo, c_uchar, CL_DEVICE_PLATFORM, cl_uint, CL_DEVICE_ADDRESS_BITS, cl_bool, CL_DEVICE_AVAILABLE, CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, cl_device_fp_config, CL_DEVICE_DOUBLE_FP_CONFIG, CL_DEVICE_ENDIAN_LITTLE, CL_DEVICE_ERROR_CORRECTION_SUPPORT, cl_device_exec_capabilities, CL_EXEC_KERNEL, CL_EXEC_NATIVE_KERNEL, CL_DEVICE_EXECUTION_CAPABILITIES, CL_DEVICE_EXTENSIONS, cl_ulong, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, CL_NONE, CL_READ_ONLY_CACHE, cl_device_mem_cache_type, CL_DEVICE_GLOBAL_MEM_CACHE_TYPE, CL_READ_WRITE_CACHE, CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, CL_DEVICE_GLOBAL_MEM_SIZE, CL_DEVICE_HALF_FP_CONFIG, CL_DEVICE_IMAGE_SUPPORT, size_t, CL_DEVICE_IMAGE2D_MAX_HEIGHT, CL_DEVICE_IMAGE2D_MAX_WIDTH, CL_DEVICE_IMAGE3D_MAX_WIDTH, CL_DEVICE_IMAGE3D_MAX_HEIGHT, CL_DEVICE_IMAGE3D_MAX_DEPTH, CL_DEVICE_LOCAL_MEM_SIZE, CL_LOCAL, CL_GLOBAL, cl_device_local_mem_type, CL_DEVICE_LOCAL_MEM_TYPE, CL_DEVICE_MAX_CLOCK_FREQUENCY, CL_DEVICE_MAX_COMPUTE_UNITS, CL_DEVICE_MAX_CONSTANT_ARGS, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, CL_DEVICE_MAX_MEM_ALLOC_SIZE, CL_DEVICE_MAX_PARAMETER_SIZE, CL_DEVICE_MAX_READ_IMAGE_ARGS, CL_DEVICE_MAX_SAMPLERS, CL_DEVICE_MAX_WORK_GROUP_SIZE, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, CL_DEVICE_MAX_WORK_ITEM_SIZES, CL_DEVICE_MAX_WRITE_IMAGE_ARGS, CL_DEVICE_MEM_BASE_ADDR_ALIGN, CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE, CL_DEVICE_NAME, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG, CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE, CL_DEVICE_PROFILE, CL_DEVICE_PROFILING_TIMER_RESOLUTION, CL_DEVICE_QUEUE_PROPERTIES, CL_DEVICE_SINGLE_FP_CONFIG, cl_device_type, CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_GPU, CL_DEVICE_TYPE_ACCELERATOR, CL_DEVICE_TYPE_CUSTOM, CL_DEVICE_TYPE, CL_DEVICE_VENDOR, CL_DEVICE_VENDOR_ID, CL_DEVICE_VERSION, CL_DRIVER_VERSION, clReleaseDevice, clRetainDevice};
-use crate::{platform::Platform, queue::CommandQueueProps};
+use alloc::{vec::Vec, string::{String}};
+use alloc::string::ToString;
+use cl_sys::{cl_device_id, clGetDeviceIDs, CL_DEVICE_TYPE_ALL, cl_device_info, clGetDeviceInfo, c_uchar, CL_DEVICE_PLATFORM, CL_DEVICE_ADDRESS_BITS, cl_bool, CL_DEVICE_AVAILABLE, CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, cl_device_fp_config, CL_DEVICE_DOUBLE_FP_CONFIG, CL_DEVICE_ENDIAN_LITTLE, CL_DEVICE_ERROR_CORRECTION_SUPPORT, cl_device_exec_capabilities, CL_EXEC_KERNEL, CL_EXEC_NATIVE_KERNEL, CL_DEVICE_EXECUTION_CAPABILITIES, CL_DEVICE_EXTENSIONS, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, CL_NONE, CL_READ_ONLY_CACHE, cl_device_mem_cache_type, CL_DEVICE_GLOBAL_MEM_CACHE_TYPE, CL_READ_WRITE_CACHE, CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, CL_DEVICE_GLOBAL_MEM_SIZE, CL_DEVICE_HALF_FP_CONFIG, CL_DEVICE_IMAGE_SUPPORT, CL_DEVICE_IMAGE2D_MAX_HEIGHT, CL_DEVICE_IMAGE2D_MAX_WIDTH, CL_DEVICE_IMAGE3D_MAX_WIDTH, CL_DEVICE_IMAGE3D_MAX_HEIGHT, CL_DEVICE_IMAGE3D_MAX_DEPTH, CL_DEVICE_LOCAL_MEM_SIZE, CL_LOCAL, CL_GLOBAL, CL_DEVICE_LOCAL_MEM_TYPE, CL_DEVICE_MAX_CLOCK_FREQUENCY, CL_DEVICE_MAX_COMPUTE_UNITS, CL_DEVICE_MAX_CONSTANT_ARGS, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, CL_DEVICE_MAX_MEM_ALLOC_SIZE, CL_DEVICE_MAX_PARAMETER_SIZE, CL_DEVICE_MAX_READ_IMAGE_ARGS, CL_DEVICE_MAX_SAMPLERS, CL_DEVICE_MAX_WORK_GROUP_SIZE, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, CL_DEVICE_MAX_WORK_ITEM_SIZES, CL_DEVICE_MAX_WRITE_IMAGE_ARGS, CL_DEVICE_MEM_BASE_ADDR_ALIGN, CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE, CL_DEVICE_NAME, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG, CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE, CL_DEVICE_PROFILE, CL_DEVICE_PROFILING_TIMER_RESOLUTION, CL_DEVICE_QUEUE_PROPERTIES, CL_DEVICE_SINGLE_FP_CONFIG, cl_device_type, CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_GPU, CL_DEVICE_TYPE_ACCELERATOR, CL_DEVICE_TYPE_CUSTOM, CL_DEVICE_TYPE, CL_DEVICE_VENDOR, CL_DEVICE_VENDOR_ID, CL_DEVICE_VERSION, CL_DRIVER_VERSION, clReleaseDevice, clRetainDevice, CL_DEVICE_REFERENCE_COUNT};
+use crate::{platform::Platform, queue::CommandQueueProps, prelude::ErrorCL, error::ErrorType};
 
 lazy_static::lazy_static! {
     static ref DEVICES : Vec<Device> = unsafe {
@@ -29,285 +30,291 @@ pub struct Device (pub(crate) cl_device_id);
 impl Device {
     /// The default compute device address space size specified as an unsigned integer value in bits. Currently supported values are 32 or 64 bits.
     #[inline(always)]
-    pub fn address_bits (&self) -> cl_uint {
+    pub fn address_bits (&self) -> Result<u32, ErrorCL> {
         self.get_info_bits(CL_DEVICE_ADDRESS_BITS)
     }
 
     /// Is ```true``` if the device is available and ```false``` if the device is not available.
     #[inline(always)]
-    pub fn available (&self) -> bool {
-        self.get_info_bits::<cl_bool>(CL_DEVICE_AVAILABLE) != 0
+    pub fn available (&self) -> Result<bool, ErrorCL> {
+        let v = self.get_info_bits::<cl_bool>(CL_DEVICE_AVAILABLE)?;
+        Ok(v != 0)
     }
 
     /// Describes the OPTIONAL double precision floating-point capability of the OpenCL device
     #[inline(always)]
-    pub fn double_fp_config (&self) -> FpConfig {
+    pub fn double_fp_config (&self) -> Result<FpConfig, ErrorCL> {
         self.get_info_bits(CL_DEVICE_DOUBLE_FP_CONFIG)
     }
 
     /// Is ```true``` if the OpenCL device is a little endian device and ```false``` otherwise.
     #[inline(always)]
-    pub fn endian_little (&self) -> bool {
-        self.get_info_bits::<cl_bool>(CL_DEVICE_ENDIAN_LITTLE) != 0
+    pub fn endian_little (&self) -> Result<bool, ErrorCL> {
+        let v = self.get_info_bits::<cl_bool>(CL_DEVICE_ENDIAN_LITTLE)?;
+        Ok(v != 0)
     }
 
     /// Is ```true``` if the device implements error correction for the memories, caches, registers etc. in the device. Is ```false``` if the device does not implement error correction. This can be a requirement for certain clients of OpenCL.
     #[inline(always)]
-    pub fn error_connection_support (&self) -> bool {
-        self.get_info_bits::<cl_bool>(CL_DEVICE_ERROR_CORRECTION_SUPPORT) != 0
+    pub fn error_connection_support (&self) -> Result<bool, ErrorCL> {
+        let v = self.get_info_bits::<cl_bool>(CL_DEVICE_ERROR_CORRECTION_SUPPORT)?;
+        Ok(v != 0)
     }
 
     /// Describes the execution capabilities of the device
     #[inline(always)]
-    pub fn execution_capabilities (&self) -> ExecCapabilities {
+    pub fn execution_capabilities (&self) -> Result<ExecCapabilities, ErrorCL> {
         self.get_info_bits(CL_DEVICE_EXECUTION_CAPABILITIES)
     }
 
     /// Returns a list of extension names (the extension names themselves do not contain any spaces)
     #[inline]
-    pub fn extensions (&self) -> Vec<String> {
-        self.get_info_string(CL_DEVICE_EXTENSIONS).unwrap()
-            .split_whitespace()
-            .map(String::from)
-            .collect::<Vec<_>>()
+    pub fn extensions (&self) -> Result<Vec<String>, ErrorCL> {
+        Ok (
+            self.get_info_string(CL_DEVICE_EXTENSIONS)?
+                .split_whitespace()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        )
     }
 
     /// Size of global memory cache in bytes.
     #[inline(always)]
-    pub fn global_mem_cache_size (&self) -> cl_ulong {
+    pub fn global_mem_cache_size (&self) -> Result<u64, ErrorCL> {
         self.get_info_bits(CL_DEVICE_GLOBAL_MEM_CACHE_SIZE)
     }
 
     /// Type of global memory cache supported.
     #[inline(always)]
-    pub fn global_mem_cache_type (&self) -> Option<MemCacheType> {
-        match self.get_info_bits::<cl_device_mem_cache_type>(CL_DEVICE_GLOBAL_MEM_CACHE_TYPE) {
-            CL_NONE => None,
-            other => unsafe { Some(transmute(other)) }
+    pub fn global_mem_cache_type (&self) -> Result<Option<MemCacheType>, ErrorCL> {
+        match self.get_info_bits::<cl_device_mem_cache_type>(CL_DEVICE_GLOBAL_MEM_CACHE_TYPE)? {
+            CL_NONE => Ok(None),
+            other => unsafe { Ok(Some(transmute(other))) }
         }
     }
 
     /// Size of global memory cache line in bytes.
     #[inline(always)]
-    pub fn global_mem_cahceline_size (&self) -> cl_uint {
+    pub fn global_mem_cahceline_size (&self) -> Result<u32, ErrorCL> {
         self.get_info_bits(CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE)
     }
 
     /// Size of global memory in bytes.
     #[inline(always)]
-    pub fn global_mem_size (&self) -> cl_ulong {
+    pub fn global_mem_size (&self) -> Result<u64, ErrorCL> {
         self.get_info_bits(CL_DEVICE_GLOBAL_MEM_SIZE)
     }
 
     /// Describes the OPTIONAL half precision floating-point capability of the OpenCL device
     #[inline(always)]
-    pub fn half_fp_config (&self) -> FpConfig {
+    pub fn half_fp_config (&self) -> Result<FpConfig, ErrorCL> {
         self.get_info_bits(CL_DEVICE_HALF_FP_CONFIG)
     }
     
     /// Is ```true``` if images are supported by the OpenCL device and ```false``` otherwise.
     #[inline(always)]
-    pub fn image_support (&self) -> bool {
-        self.get_info_bits::<cl_bool>(CL_DEVICE_IMAGE_SUPPORT) != 0
+    pub fn image_support (&self) -> Result<bool, ErrorCL> {
+        let v = self.get_info_bits::<cl_bool>(CL_DEVICE_IMAGE_SUPPORT)?;
+        Ok(v != 0)
     }
 
     /// Max height of 2D image in pixels. The minimum value is 8192 if [```image_support```] is ```true```.
     #[inline(always)]
-    pub fn image2d_max_height (&self) -> Option<NonZeroUsize> {
-        NonZeroUsize::new(self.get_info_bits::<size_t>(CL_DEVICE_IMAGE2D_MAX_HEIGHT))
+    pub fn image2d_max_height (&self) -> Result<Option<NonZeroUsize>, ErrorCL> {
+        self.get_info_bits::<usize>(CL_DEVICE_IMAGE2D_MAX_HEIGHT).map(NonZeroUsize::new)
     }
 
     /// Max width of 2D image in pixels. The minimum value is 8192 if [```image_support```] is ```true```.
     #[inline(always)]
-    pub fn image2d_max_width (&self) -> Option<NonZeroUsize> {
-        NonZeroUsize::new(self.get_info_bits::<size_t>(CL_DEVICE_IMAGE2D_MAX_WIDTH))
+    pub fn image2d_max_width (&self) -> Result<Option<NonZeroUsize>, ErrorCL> {
+        self.get_info_bits::<usize>(CL_DEVICE_IMAGE2D_MAX_WIDTH).map(NonZeroUsize::new)
     }
 
     /// Max depth of 3D image in pixels. The minimum value is 2048 if [```image_support```] is ```true```.
     #[inline(always)]
-    pub fn image3d_max_depth (&self) -> Option<NonZeroUsize> {
-        NonZeroUsize::new(self.get_info_bits::<size_t>(CL_DEVICE_IMAGE3D_MAX_DEPTH))
+    pub fn image3d_max_depth (&self) -> Result<Option<NonZeroUsize>, ErrorCL> {
+        self.get_info_bits::<usize>(CL_DEVICE_IMAGE3D_MAX_DEPTH).map(NonZeroUsize::new)
     }
 
     /// Max height of 3D image in pixels. The minimum value is 2048 if [```image_support```] is ```true```.
     #[inline(always)]
-    pub fn image3d_max_height (&self) -> Option<NonZeroUsize> {
-        NonZeroUsize::new(self.get_info_bits::<size_t>(CL_DEVICE_IMAGE3D_MAX_HEIGHT))
+    pub fn image3d_max_height (&self) -> Result<Option<NonZeroUsize>, ErrorCL> {
+        self.get_info_bits::<usize>(CL_DEVICE_IMAGE3D_MAX_HEIGHT).map(NonZeroUsize::new)
     }
 
     /// Max width of 3D image in pixels. The minimum value is 2048 if [```image_support```] is ```true```.
     #[inline(always)]
-    pub fn image3d_max_width (&self) -> Option<NonZeroUsize> {
-        NonZeroUsize::new(self.get_info_bits::<size_t>(CL_DEVICE_IMAGE3D_MAX_WIDTH))
+    pub fn image3d_max_width (&self) -> Result<Option<NonZeroUsize>, ErrorCL> {
+        self.get_info_bits::<usize>(CL_DEVICE_IMAGE3D_MAX_WIDTH).map(NonZeroUsize::new)
     }
 
     /// Size of local memory arena in bytes. The minimum value is 16 KB.
     #[inline(always)]
-    pub fn local_mem_size (&self) -> NonZeroU64 {
+    pub fn local_mem_size (&self) -> Result<NonZeroU64, ErrorCL> {
         unsafe {
-            NonZeroU64::new_unchecked(self.get_info_bits::<cl_ulong>(CL_DEVICE_LOCAL_MEM_SIZE))
+            Ok(NonZeroU64::new_unchecked(self.get_info_bits::<u64>(CL_DEVICE_LOCAL_MEM_SIZE)?))
         }
     }
 
     /// Type of local memory supported.
     #[inline(always)]
-    pub fn local_mem_type (&self) -> LocalMemType {
-        unsafe { transmute(self.get_info_bits::<cl_device_local_mem_type>(CL_DEVICE_LOCAL_MEM_TYPE)) }
+    pub fn local_mem_type (&self) -> Result<LocalMemType, ErrorCL> {
+        self.get_info_bits(CL_DEVICE_LOCAL_MEM_TYPE)
     }
 
     /// Maximum configured clock frequency of the device in MHz.
     #[inline(always)]
-    pub fn max_clock_frequency (&self) -> cl_uint {
+    pub fn max_clock_frequency (&self) -> Result<u32, ErrorCL> {
         self.get_info_bits(CL_DEVICE_MAX_CLOCK_FREQUENCY)
     }
 
     /// The number of parallel compute cores on the OpenCL device. The minimum value is 1.
     #[inline(always)]
-    pub fn max_compute_units (&self) -> NonZeroU32 {
+    pub fn max_compute_units (&self) -> Result<NonZeroU32, ErrorCL> {
         unsafe { 
-            NonZeroU32::new_unchecked(self.get_info_bits::<cl_uint>(CL_DEVICE_MAX_COMPUTE_UNITS))
+            Ok(NonZeroU32::new_unchecked(self.get_info_bits::<u32>(CL_DEVICE_MAX_COMPUTE_UNITS)?))
         }
     }
 
     /// Max number of arguments declared with the ```__constant``` qualifier in a kernel. The minimum value is 8.
     #[inline(always)]
-    pub fn max_constant_args (&self) -> NonZeroU32 {
+    pub fn max_constant_args (&self) -> Result<NonZeroU32, ErrorCL> {
         unsafe { 
-            NonZeroU32::new_unchecked(self.get_info_bits::<cl_uint>(CL_DEVICE_MAX_CONSTANT_ARGS))
+            Ok(NonZeroU32::new_unchecked(self.get_info_bits::<u32>(CL_DEVICE_MAX_CONSTANT_ARGS)?))
         }
     }
 
     /// Max size in bytes of a constant buffer allocation. The minimum value is 64 KB.
     #[inline(always)]
-    pub fn max_constant_buffer_size (&self) -> NonZeroU64 {
+    pub fn max_constant_buffer_size (&self) -> Result<NonZeroU64, ErrorCL> {
         unsafe { 
-            NonZeroU64::new_unchecked(self.get_info_bits::<cl_ulong>(CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE))
+            Ok(NonZeroU64::new_unchecked(self.get_info_bits::<u64>(CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE)?))
         }
     }
 
     /// Max size of memory object allocation in bytes. The minimum value is max (1/4th of [```global_mem_size```](), 128*1024*1024)
     #[inline(always)]
-    pub fn max_mem_alloc_size (&self) -> NonZeroU64 {
+    pub fn max_mem_alloc_size (&self) -> Result<NonZeroU64, ErrorCL> {
         unsafe { 
-            NonZeroU64::new_unchecked(self.get_info_bits::<cl_ulong>(CL_DEVICE_MAX_MEM_ALLOC_SIZE))
+            Ok(NonZeroU64::new_unchecked(self.get_info_bits::<u64>(CL_DEVICE_MAX_MEM_ALLOC_SIZE)?))
         }
     }
 
     /// Max size in bytes of the arguments that can be passed to a kernel. The minimum value is 256.
     #[inline(always)]
-    pub fn max_parameter_size (&self) -> NonZeroUsize {
+    pub fn max_parameter_size (&self) -> Result<NonZeroUsize, ErrorCL> {
         unsafe { 
-            NonZeroUsize::new_unchecked(self.get_info_bits::<size_t>(CL_DEVICE_MAX_PARAMETER_SIZE))
+            Ok(NonZeroUsize::new_unchecked(self.get_info_bits::<usize>(CL_DEVICE_MAX_PARAMETER_SIZE)?))
         }
     }
 
     /// Max number of simultaneous image objects that can be read by a kernel. The minimum value is 128 if [```image_support```] is ```true```.
     #[inline(always)]
-    pub fn max_read_image_args (&self) -> Option<NonZeroU32> {
-        NonZeroU32::new(self.get_info_bits::<cl_uint>(CL_DEVICE_MAX_READ_IMAGE_ARGS))
+    pub fn max_read_image_args (&self) -> Result<Option<NonZeroU32>, ErrorCL> {
+        self.get_info_bits::<u32>(CL_DEVICE_MAX_READ_IMAGE_ARGS).map(NonZeroU32::new)
     }
 
     /// Maximum number of samplers that can be used in a kernel. The minimum value is 16 if [```image_support```] is ```true```.
     #[inline(always)]
-    pub fn max_samplers (&self) -> Option<NonZeroU32> {
-        NonZeroU32::new(self.get_info_bits::<cl_uint>(CL_DEVICE_MAX_SAMPLERS))
+    pub fn max_samplers (&self) -> Result<Option<NonZeroU32>, ErrorCL> {
+        self.get_info_bits::<u32>(CL_DEVICE_MAX_SAMPLERS).map(NonZeroU32::new)
     }
 
     /// Maximum number of work-items in a work-group executing a kernel using the data parallel execution model. The minimum value is 1.
     #[inline(always)]
-    pub fn max_work_group_size (&self) -> NonZeroUsize {
+    pub fn max_work_group_size (&self) -> Result<NonZeroUsize, ErrorCL> {
         unsafe {
-            NonZeroUsize::new_unchecked(self.get_info_bits::<size_t>(CL_DEVICE_MAX_WORK_GROUP_SIZE))
+            Ok(NonZeroUsize::new_unchecked(self.get_info_bits::<usize>(CL_DEVICE_MAX_WORK_GROUP_SIZE)?))
         }
     }
 
     /// Maximum dimensions that specify the global and local work-item IDs used by the data parallel execution model. The minimum value is 3.
     #[inline(always)]
-    pub fn max_work_item_dimensions (&self) -> NonZeroU32 {
+    pub fn max_work_item_dimensions (&self) -> Result<NonZeroU32, ErrorCL> {
         unsafe {
-            NonZeroU32::new_unchecked(self.get_info_bits::<cl_uint>(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS))
+            Ok(NonZeroU32::new_unchecked(self.get_info_bits::<u32>(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS)?))
         }
     }
 
     /// Maximum number of work-items that can be specified in each dimension of the work-group to clEnqueueNDRangeKernel. Returns n ```usize``` entries, where n is the value returned by the query for [```max_work_item_dimensions```]. The minimum value is (1, 1, 1).
     #[inline(always)]
-    pub fn max_work_item_sizes (&self) -> Vec<NonZeroUsize> {
-        let n = usize::try_from(self.max_work_item_dimensions().get()).unwrap();
+    pub fn max_work_item_sizes (&self) -> Result<Vec<NonZeroUsize>, ErrorCL> {
+        let n = usize::try_from(self.max_work_item_dimensions()?.get()).unwrap();
         // FIXME: maybe using nonzero ints messes up the alignment?
         let mut max_work_item_sizes = Vec::<NonZeroUsize>::with_capacity(n);
 
-        let len = n.checked_mul(core::mem::size_of::<size_t>()).expect("Integer multiplication oveflow. Too many work items to fit in a vector");
+        let len = n.checked_mul(core::mem::size_of::<usize>()).expect("Integer multiplication oveflow. Too many work items to fit in a vector");
         unsafe {
             clGetDeviceInfo(self.0, CL_DEVICE_MAX_WORK_ITEM_SIZES, len, max_work_item_sizes.as_mut_ptr().cast(), core::ptr::null_mut());
             max_work_item_sizes.set_len(n);
         }
 
-        max_work_item_sizes
+        Ok(max_work_item_sizes)
     }
 
     /// Max number of simultaneous image objects that can be written to by a kernel. The minimum value is 8 if [```image_support```] is ```true```.
     #[inline(always)]
-    pub fn max_write_image_args (&self) -> Option<NonZeroU32> {
-        NonZeroU32::new(self.get_info_bits::<cl_uint>(CL_DEVICE_MAX_WRITE_IMAGE_ARGS))
+    pub fn max_write_image_args (&self) -> Result<Option<NonZeroU32>, ErrorCL> {
+        self.get_info_bits::<u32>(CL_DEVICE_MAX_WRITE_IMAGE_ARGS).map(NonZeroU32::new)
     }
 
     /// Describes the alignment in bits of the base address of any allocated memory object.
     #[inline(always)]
-    pub fn mem_base_addr_align (&self) -> cl_uint {
+    pub fn mem_base_addr_align (&self) -> Result<u32, ErrorCL> {
         self.get_info_bits(CL_DEVICE_MEM_BASE_ADDR_ALIGN)
     }
 
     /// The smallest alignment in bytes which can be used for any data type.
     #[inline(always)]
-    pub fn min_data_type_align_size (&self) -> cl_uint {
+    pub fn min_data_type_align_size (&self) -> Result<u32, ErrorCL> {
         self.get_info_bits(CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE)
     }
 
     /// Device name string.
     #[inline(always)]
-    pub fn name (&self) -> String {
-        self.get_info_string(CL_DEVICE_NAME).unwrap()
+    pub fn name (&self) -> Result<String, ErrorCL> {
+        self.get_info_string(CL_DEVICE_NAME)
     }
 
     /// The platform associated with this device.
     #[inline(always)]
-    pub fn platform (&self) -> Platform {
+    pub fn platform (&self) -> Result<Platform, ErrorCL> {
         self.get_info_bits(CL_DEVICE_PLATFORM)
     }
 
     /// Preferred native vector width size for built-in scalar types that can be put into vectors. The vector width is defined as the number of scalar elements that can be stored in the vector.
     #[inline(always)]
-    pub fn preferred_vector_width_char (&self) -> cl_uint {
+    pub fn preferred_vector_width_char (&self) -> Result<u32, ErrorCL> {
         self.get_info_bits(CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR)
     }
 
     /// Preferred native vector width size for built-in scalar types that can be put into vectors. The vector width is defined as the number of scalar elements that can be stored in the vector.
     #[inline(always)]
-    pub fn preferred_vector_width_short (&self) -> cl_uint {
+    pub fn preferred_vector_width_short (&self) -> Result<u32, ErrorCL> {
         self.get_info_bits(CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT)
     }
 
     /// Preferred native vector width size for built-in scalar types that can be put into vectors. The vector width is defined as the number of scalar elements that can be stored in the vector.
     #[inline(always)]
-    pub fn preferred_vector_width_int (&self) -> cl_uint {
+    pub fn preferred_vector_width_int (&self) -> Result<u32, ErrorCL> {
         self.get_info_bits(CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT)
     }
 
     /// Preferred native vector width size for built-in scalar types that can be put into vectors. The vector width is defined as the number of scalar elements that can be stored in the vector.
     #[inline(always)]
-    pub fn preferred_vector_width_long (&self) -> cl_uint {
+    pub fn preferred_vector_width_long (&self) -> Result<u32, ErrorCL> {
         self.get_info_bits(CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG)
     }
 
     /// Preferred native vector width size for built-in scalar types that can be put into vectors. The vector width is defined as the number of scalar elements that can be stored in the vector.
     #[inline(always)]
-    pub fn preferred_vector_width_float (&self) -> cl_uint {
+    pub fn preferred_vector_width_float (&self) -> Result<u32, ErrorCL> {
         self.get_info_bits(CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT)
     }
 
     /// Preferred native vector width size for built-in scalar types that can be put into vectors. The vector width is defined as the number of scalar elements that can be stored in the vector. if the ```cl_khr_fp64``` extension is not supported, it must return 0.
     #[inline(always)]
-    pub fn preferred_vector_width_double (&self) -> cl_uint {
+    pub fn preferred_vector_width_double (&self) -> Result<u32, ErrorCL> {
         self.get_info_bits(CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE)
     }
 
@@ -319,50 +326,55 @@ impl Device {
 
     /// Describes the resolution of device timer. This is measured in nanoseconds.
     #[inline(always)]
-    pub fn profiling_timer_resolution (&self) -> size_t {
+    pub fn profiling_timer_resolution (&self) -> Result<usize, ErrorCL> {
         self.get_info_bits(CL_DEVICE_PROFILING_TIMER_RESOLUTION)
     }
 
     /// Describes the command-queue properties supported by the device.
     #[inline(always)]
-    pub fn queue_properties (&self) -> CommandQueueProps {
+    pub fn queue_properties (&self) -> Result<CommandQueueProps, ErrorCL> {
         self.get_info_bits(CL_DEVICE_QUEUE_PROPERTIES)
+    }
+
+    #[inline(always)]
+    pub fn reference_count (&self) -> Result<usize, ErrorCL> {
+        self.get_info_bits(CL_DEVICE_REFERENCE_COUNT)
     }
 
     /// Describes single precision floating-point capability of the device.
     #[inline(always)]
-    pub fn single_fp_config (&self) -> FpConfig {
+    pub fn single_fp_config (&self) -> Result<FpConfig, ErrorCL> {
         self.get_info_bits(CL_DEVICE_SINGLE_FP_CONFIG)
     }
 
     /// The OpenCL device type.
     #[inline(always)]
-    pub fn ty (&self) -> DeviceType {
+    pub fn ty (&self) -> Result<DeviceType, ErrorCL> {
         self.get_info_bits(CL_DEVICE_TYPE)
     }
 
     /// Vendor name string.
     #[inline(always)]
-    pub fn vendor (&self) -> String {
-        self.get_info_string(CL_DEVICE_VENDOR).unwrap()
+    pub fn vendor (&self) -> Result<String, ErrorCL> {
+        self.get_info_string(CL_DEVICE_VENDOR)
     }
 
     /// A unique device vendor identifier. An example of a unique device identifier could be the PCIe ID.
     #[inline(always)]
-    pub fn vendor_id (&self) -> cl_uint {
+    pub fn vendor_id (&self) -> Result<u32, ErrorCL> {
         self.get_info_bits(CL_DEVICE_VENDOR_ID)
     }
 
     /// OpenCL version string.
     #[inline(always)]
-    pub fn version (&self) -> String {
-        self.get_info_string(CL_DEVICE_VERSION).unwrap()
+    pub fn version (&self) -> Result<String, ErrorCL> {
+        self.get_info_string(CL_DEVICE_VERSION)
     }
 
     /// OpenCL software driver version string in the form _major_number_._minor_number_.
     #[inline(always)]
-    pub fn driver_version (&self) -> String {
-        self.get_info_string(CL_DRIVER_VERSION).unwrap()
+    pub fn driver_version (&self) -> Result<String, ErrorCL> {
+        self.get_info_string(CL_DRIVER_VERSION)
     }
     
     #[inline(always)]
@@ -377,11 +389,16 @@ impl Device {
 
     #[inline(always)]
     pub fn from_platform (platform: Platform) -> impl Iterator<Item = Device> {
-        DEVICES.iter().cloned().filter(move |x| x.platform() == platform)
+        DEVICES.iter().cloned().filter_map(move |x| {
+            match x.platform() {
+                Ok(plat) if plat == platform => Some(x),
+                _ => None
+            }
+        })
     }
 
     #[inline]
-    fn get_info_string (&self, ty: cl_device_info) -> Result<String, FromUtf8Error> {
+    fn get_info_string (&self, ty: cl_device_info) -> Result<String, ErrorCL> {
         unsafe {
             let mut len = 0;
             tri_panic!(clGetDeviceInfo(self.0, ty, 0, core::ptr::null_mut(), &mut len));
@@ -390,16 +407,21 @@ impl Device {
             tri_panic!(clGetDeviceInfo(self.0, ty, len * core::mem::size_of::<c_uchar>(), result.as_mut_ptr().cast(), core::ptr::null_mut()));
             
             result.set_len(len - 1);
-            String::from_utf8(result)
+            String::from_utf8(result).map_err(|e| ErrorCL::new(ErrorType::InvalidValue, Some(e.to_string())))
         }
     }
 
     #[inline]
-    fn get_info_bits<T: Copy> (&self, ty: cl_device_info) -> T {
+    fn get_info_bits<T> (&self, ty: cl_device_info) -> Result<T, ErrorCL> {
+        let mut value = MaybeUninit::<T>::uninit();
+        
         unsafe {
-            let mut value = MaybeUninit::<T>::uninit();
-            tri_panic!(clGetDeviceInfo(self.0, ty, core::mem::size_of::<T>(), value.as_mut_ptr().cast(), core::ptr::null_mut()));
-            value.assume_init()
+            let err = clGetDeviceInfo(self.0, ty, core::mem::size_of::<T>(), value.as_mut_ptr().cast(), core::ptr::null_mut());
+            if err == 0 {
+                return Ok(value.assume_init());
+            }
+            
+            Err(ErrorCL::from(err))
         }
     }
 }

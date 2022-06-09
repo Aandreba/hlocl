@@ -1,6 +1,4 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-#![feature(arc_unwrap_or_clone)]
-
+#![feature(arc_unwrap_or_clone, vec_into_raw_parts)]
 pub(crate) extern crate alloc;
 
 macro_rules! flat_mod {
@@ -28,6 +26,9 @@ pub mod prelude {
     pub use crate::queue::CommandQueue;
     pub use crate::error::ErrorCL;
     pub use crate::program::Program;
+    pub use crate::event::{Event, BaseEvent};
+    pub use crate::buffer::{MemBuffer, ArrayBuffer};
+    pub use crate::kernel::Kernel;
 }
 
 pub mod error;
@@ -38,3 +39,7 @@ pub mod context;
 pub mod program;
 pub mod buffer;
 pub mod event;
+pub mod kernel;
+
+pub mod utils;
+pub mod vec;
