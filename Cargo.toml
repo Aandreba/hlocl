@@ -16,3 +16,6 @@ cfg-if = "1"
 bitflags = "1"
 elor = "1"
 futures = { version = "0.3", optional = true }
+
+[dev-dependencies]
+tokio = { veriosn = "1", features = ["full"] }

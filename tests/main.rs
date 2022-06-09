@@ -40,3 +40,17 @@ fn program () {
     let read = array.get(&queue, 1, []).unwrap().unwrap().wait().unwrap();
     println!("Value @ 1 is {read}")
 }
+
+#[tokio::test]
+async fn sync () {
+    let device = Device::all().first().unwrap();
+    let ctx = Context::new(None, core::slice::from_ref(device)).unwrap();
+    let queue = CommandQueue::new(&ctx, device, None).unwrap();
+    let buffer = UnsafeBuffer::<f32>::new(&ctx, 1000, None).unwrap();
+
+    unsafe {
+        let write = buffer.write(&queue, false, 0, vec![1.0; 1000], None).unwrap();
+        let read = buffer.read(&queue, false, 0, 1000, [write.borrow_base()]).unwrap().await.unwrap();
+        println!("Read: {:?}", &read[..5]);
+    }
+}

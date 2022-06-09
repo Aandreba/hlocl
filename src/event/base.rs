@@ -164,6 +164,9 @@ unsafe impl Sync for BaseEvent {}
 
 #[cfg(feature = "async")]
 extern "C" fn notify (_event: cl_event, _status: cl_sys::cl_int, data: *mut cl_sys::c_void) {
+    #[cfg(all(feature = "std", test))]
+    std::println!("Waky waky");
+
     let data = unsafe { Arc::from_raw(data as *const AtomicWaker) };
     data.wake()
 }

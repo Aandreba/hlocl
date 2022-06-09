@@ -45,7 +45,7 @@ impl<O, E: Event + Unpin, F: Unpin + FnOnce(E::Result) -> O> futures::Future for
             return core::task::Poll::Ready(Ok(f(out)))
         }
 
-        todo!()
+        core::task::Poll::Pending
     }
 }
 

@@ -38,6 +38,12 @@ impl<T: Copy + Unpin> UnsafeBuffer<T> {
     }
 
     #[inline(always)]
+    pub unsafe fn transmute<O: Copy + Unpin> (self) -> UnsafeBuffer<O> {
+        debug_assert_eq!(core::mem::size_of::<T>(), core::mem::size_of::<O>());
+        UnsafeBuffer(self.0, PhantomData)
+    }
+
+    #[inline(always)]
     pub unsafe fn copy_to<'a> (&self, queue: &CommandQueue, src_pffset: size_t, dst: UnsafeBuffer<T>, dst_offset: size_t, len: size_t, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<CopyBuffer<T>, ErrorCL> {
         CopyBuffer::new(queue, src_pffset, dst_offset, len, self.clone(), dst, wait)
     }
