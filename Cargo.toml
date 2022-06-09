@@ -5,7 +5,7 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
-async = ["futures"]
+async = ["futures", "future-parking_lot"]
 
 [dependencies]
 cl-sys = "0.4"
@@ -13,8 +13,10 @@ lazy_static = "1"
 cfg-if = "1"
 bitflags = "1"
 elor = "1"
-futures = { version = "0.3", optional = true }
 parking_lot = "0.12.1"
+lock_api = "0.3.4"
+future-parking_lot = { version = "0.3.3", optional = true }
+futures = { version = "0.3.21", optional = true }
 
 [dev-dependencies]
 tokio = { veriosn = "1", features = ["full"] }

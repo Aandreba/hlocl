@@ -1,1 +1,1 @@
-flat_mod!(ctx);
+flat_mod!(ctx, kernel);

@@ -1,3 +1,5 @@
+// Ensure we are using core/alloc, so a possible future migration to no_std is easier.
+#![cfg_attr(test, no_std)]
 #![feature(arc_unwrap_or_clone, vec_into_raw_parts)]
 pub(crate) extern crate alloc;
 
