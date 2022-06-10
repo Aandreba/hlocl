@@ -1,6 +1,4 @@
-use std::f32::consts::PI;
-
-use opencl::{prelude::*, buffer::{ArrayBuffer, MemFlags}, vec::{Vector, VectorManager}, utils::ContextManager};
+use opencl::{prelude::*, buffer::{ArrayBuffer, MemFlags}, vec::{Vector}};
 
 const TEST_KERNEL : &'static str = "void kernel add (const int n, __global const int* rhs, __global const int* in, __global int* out) {
     for (int id = get_global_id(0); id<n; id += get_global_size(0)) {
@@ -36,8 +34,8 @@ fn sum () {
 
 #[test]
 fn vec () {
-    let alpha = Vector::from_default(&[1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
-    let beta = Vector::from_default(&[6.0, 7.0, 8.0, 9.0, 10.0]).unwrap();
+    let alpha = Vector::<u8>::from_default(&[1, 2, 3, 4]).unwrap();
+    let beta = Vector::<u8>::from_default(&[5, 6, 7, 8]).unwrap();
     let result = alpha + beta;
 
     println!("{:?}", result)

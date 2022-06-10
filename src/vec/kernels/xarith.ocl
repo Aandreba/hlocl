@@ -22,11 +22,11 @@ void kernel div (const ulong n, __global const number* rhs, __global const numbe
     }
 }
 
-void kernel mul_add (const ulong n, __global const number* rhs, __global const number* add, __global const number* in, __global number* out) {
+/*void kernel mul_add (const ulong n, __global const number* rhs, __global const number* add, __global const number* in, __global number* out) {
     for (ulong id = get_global_id(0); id<n; id += get_global_size(0)) {
         out[id] = fma(in[id], rhs[id], add[id]);
     }
-}
+}*/
 
 // Assign
 void kernel add_assign (const ulong n, __global const number* rhs, __global number* vector) {
@@ -53,8 +53,9 @@ void kernel div_assign (const ulong n, __global const number* rhs, __global numb
     }
 }
 
+/*
 void kernel mul_add_assign (const ulong n, __global const number* rhs, __global const number* add, __global number* vector) {
     for (ulong id = get_global_id(0); id<n; id += get_global_size(0)) {
         vector[id] = fma(vector[id], rhs[id], add[id]);
     }
-}
+}*/
