@@ -1,6 +1,6 @@
 use core::{mem::MaybeUninit, num::NonZeroUsize};
 use alloc::{string::{String, ToString}, vec::Vec};
-use cl_sys::{cl_program, clReleaseProgram, clCreateProgramWithSource, clRetainProgram, clBuildProgram, cl_program_info, clGetProgramInfo, CL_PROGRAM_REFERENCE_COUNT, CL_PROGRAM_CONTEXT, CL_PROGRAM_NUM_DEVICES, CL_PROGRAM_DEVICES, CL_PROGRAM_SOURCE};
+use cl_sys::{cl_program, clReleaseProgram, clCreateProgramWithSource, clRetainProgram, clBuildProgram, cl_program_info, clGetProgramInfo, CL_PROGRAM_REFERENCE_COUNT, CL_PROGRAM_CONTEXT, CL_PROGRAM_NUM_DEVICES, CL_PROGRAM_DEVICES, CL_PROGRAM_SOURCE, clGetProgramBuildInfo, CL_PROGRAM_BUILD_LOG};
 use crate::{prelude::{ErrorCL, Context, Device}, error::ErrorType};
 
 /// OpenCL program
@@ -24,7 +24,7 @@ impl Program {
         }
 
         let this = Self(id);
-        this.build()?;
+        this.build(ctx)?;
         Ok(this)
     }
 
@@ -94,16 +94,40 @@ impl Program {
     }
 
     #[inline(always)]
-    fn build (&self) -> Result<(), ErrorCL> {
-        let result = unsafe {
+    fn build (&self, cx: &Context) -> Result<(), ErrorCL> {
+        let build_result = unsafe {
             clBuildProgram(self.0, 0, core::ptr::null(), core::ptr::null(), None, core::ptr::null_mut())
         };
 
-        if result == 0 {
+        if build_result == 0 {
             return Ok(());
         }
 
-        Err(ErrorCL::from(result))
+        let devices = cx.devices()?;
+        for device in devices {
+            let mut len = 0;
+            let err = unsafe {
+                clGetProgramBuildInfo(self.0, device.0, CL_PROGRAM_BUILD_LOG, 0, core::ptr::null_mut(), &mut len)
+            };
+
+            if err != 0 { return Err(ErrorCL::from(err)); }
+            if len == 0 { continue }
+
+            let mut result = Vec::<u8>::with_capacity(len);
+            let err = unsafe {
+                clGetProgramBuildInfo(self.0, device.0, CL_PROGRAM_BUILD_LOG, len, result.as_mut_ptr().cast(), core::ptr::null_mut())
+            };
+
+            if err != 0 { return Err(ErrorCL::from(err)); }
+
+            unsafe { result.set_len(len) }
+            return match String::from_utf8(result) {
+                Ok(err) => Err(ErrorCL::new(ErrorType::from(build_result), Some(err))),
+                _ => continue
+            }
+        }   
+
+        Err(ErrorCL::from(build_result))
     }
 
     #[inline]

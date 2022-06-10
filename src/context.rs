@@ -1,5 +1,7 @@
+use core::mem::MaybeUninit;
+
 use alloc::vec::{Vec};
-use cl_sys::{cl_context, cl_context_properties, CL_CONTEXT_PLATFORM, CL_CONTEXT_INTEROP_USER_SYNC, clCreateContext, clReleaseContext, clRetainContext};
+use cl_sys::{cl_context, cl_context_properties, CL_CONTEXT_PLATFORM, CL_CONTEXT_INTEROP_USER_SYNC, clCreateContext, clReleaseContext, clRetainContext, cl_context_info, clGetContextInfo, CL_CONTEXT_REFERENCE_COUNT, CL_CONTEXT_NUM_DEVICES, CL_CONTEXT_DEVICES};
 use crate::error::ErrorCL;
 use crate::prelude::{Platform, Device};
 
@@ -34,10 +36,59 @@ impl Context {
         Ok(Context(id))
     }
 
+    /// Return the context reference count. The reference count returned should be considered immediately stale. It is unsuitable for general use in applications. This feature is provided for identifying memory leaks. 
+    #[inline(always)]
+    pub fn reference_count (&self) -> Result<u32, ErrorCL> {
+        self.get_info(CL_CONTEXT_REFERENCE_COUNT)
+    }
+
+    /// Return the number of devices in context. 
+    #[inline(always)]
+    pub fn device_count (&self) -> Result<u32, ErrorCL> {
+        self.get_info(CL_CONTEXT_NUM_DEVICES)
+    }
+
+    /// Return the list of devices in context.
+    #[inline]
+    pub fn devices (&self) -> Result<Vec<Device>, ErrorCL> {
+        let count = self.device_count()?;
+        let mut result = Vec::<Device>::with_capacity(count as usize);
+
+        let err = unsafe {
+            clGetContextInfo(self.0, CL_CONTEXT_DEVICES, result.capacity() * core::mem::size_of::<Device>(), result.as_mut_ptr().cast(), core::ptr::null_mut())
+        };
+
+        if err != 0 {
+            return Err(ErrorCL::from(err));
+        }
+
+        unsafe { result.set_len(result.capacity()); }
+        Ok(result)
+    }
+
+    #[inline]
+    pub fn properties (&self) -> Result<ContextProps, ErrorCL> {
+        todo!()
+    }
+
     #[cfg(feature = "def")]
     #[inline(always)]
     pub fn default () -> &'static Context {
         &CONTEXT
+    }
+
+    #[inline]
+    fn get_info<T> (&self, ty: cl_context_info) -> Result<T, ErrorCL> {
+        let mut value = MaybeUninit::<T>::uninit();
+        
+        unsafe {
+            let err = clGetContextInfo(self.0, ty, core::mem::size_of::<T>(), value.as_mut_ptr().cast(), core::ptr::null_mut());
+            if err == 0 {
+                return Ok(value.assume_init());
+            }
+            
+            Err(ErrorCL::from(err))
+        }
     }
 }
 

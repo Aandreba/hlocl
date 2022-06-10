@@ -1,3 +1,4 @@
+use num_traits::MulAdd;
 use opencl::{prelude::*, buffer::{ArrayBuffer, MemFlags}, vec::{Vector}};
 
 const TEST_KERNEL : &'static str = "void kernel add (const int n, __global const int* rhs, __global const int* in, __global int* out) {
@@ -34,9 +35,10 @@ fn sum () {
 
 #[test]
 fn vec () {
-    let alpha = Vector::<u8>::from_default(&[1, 2, 3, 4]).unwrap();
-    let beta = Vector::<u8>::from_default(&[5, 6, 7, 8]).unwrap();
-    let result = alpha + beta;
+    let alpha = Vector::<i32>::new(&[1, 2, 3, 4]).unwrap();
+    let beta = Vector::<i32>::new(&[5, 6, 7, 8]).unwrap();
+    let gamma = Vector::<i32>::new(&[9, 10, 11, 12]).unwrap();
+    let result = alpha - beta + gamma;
 
     println!("{:?}", result)
 }

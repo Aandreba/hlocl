@@ -223,7 +223,7 @@ macro_rules! impl_prog {
 
             impl<T: $crate::utils::MathCL, R: parking_lot::lock_api::RawMutex> $name<T, R> {
                 pub fn new<'a> (ctx: &$crate::prelude::Context) -> Result<Self, $crate::prelude::ErrorCL> {
-                    let program = $crate::prelude::Program::from_source(ctx, &std::format!("typedef {} number;\n{}", T::NAME, include_str!($path)))?;
+                    let program = $crate::prelude::Program::from_source(ctx, &std::format!("#define IS_FLOAT {}\n#define IS_SIGNED {}\ntypedef {} number;\n{}", T::FLOAT, T::SIGNED, T::NAME, include_str!($path)))?;
                     
                     $(
                         let $fun = $crate::prelude::Kernel::new(&program, stringify!($fun)).map(parking_lot::lock_api::Mutex::new)?;

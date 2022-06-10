@@ -3,19 +3,32 @@ extern crate std;
 
 use crate::vec::VectorManager;
 use crate::prelude::Context;
+#[cfg(feature = "half")]
+use half::f16;
 
 pub trait MathCL: 'static + Copy + Unpin {
     const NAME : &'static str;
+    const FLOAT : bool;
+    const SIGNED : bool;
 
     #[cfg(feature = "def")]
     fn default_vec_manager () -> &'static VectorManager<Self>;
 }
 
+macro_rules! float {
+    (f32) => {true};
+    (f64) => {true};
+    (half::f16) => {true};
+    ($t:ty) => {false}
+}
+
 macro_rules! impl_math {
-    ($($ty:ty => $c:ident as $name:literal),+) => {
+    ($($ty:ident => $c:ident as $name:literal),+) => {
         $(
             impl MathCL for $ty {
                 const NAME : &'static str = $name;
+                const FLOAT : bool = float!($ty);
+                const SIGNED : bool = <$ty>::MIN != (0u8 as $ty);
 
                 #[cfg(feature = "def")]
                 #[inline(always)]
@@ -65,6 +78,6 @@ impl_math! {
     u64 => ULONG as "ulong",
     i64 => LONG as "long",
     f32 => FLOAT as "float",
-    f64 => DOUBLE as "double"
-    half::f16 => HALF as "half",
+    f64 => DOUBLE as "double",
+    f16 => HALF as "half"
 }

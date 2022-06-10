@@ -14,22 +14,23 @@ pub struct Vector<T: MathCL> (MemBuffer<T>);
 impl<T: MathCL> Vector<T> {
     #[cfg(feature = "def")]
     #[inline(always)]
-    pub fn from_default (v: &[T]) -> Result<Self, ErrorCL> {
-        Self::new(Context::default(), None, v)
+    pub fn new (v: &[T]) -> Result<Self, ErrorCL> {
+        Self::with_context(Context::default(), v)
     }
 
     #[inline(always)]
-    pub fn new (ctx: &Context, flags: impl Into<Option<MemFlags>>, v: &[T]) -> Result<Self, ErrorCL> {
-        MemBuffer::new(ctx, flags, v).map(Self)
+    pub fn with_context (ctx: &Context, v: &[T]) -> Result<Self, ErrorCL> {
+        MemBuffer::new(ctx, None, v).map(Self)
     }
 
     #[inline(always)]
-    unsafe fn uninit (ctx: &Context, len: usize, flags: impl Into<Option<MemFlags>>) -> Result<Self, ErrorCL> {
-        MemBuffer::uninit(ctx, len, flags).map(Self)
+    unsafe fn uninit (ctx: &Context, len: usize) -> Result<Self, ErrorCL> {
+        MemBuffer::uninit(ctx, len, None).map(Self)
     }
 
     #[inline(always)]
-    pub fn from_buffer (v: MemBuffer<T>) -> Self {
+    pub unsafe fn from_buffer (v: MemBuffer<T>) -> Self {
+        debug_assert!(v.flags().unwrap().contains(MemFlags::READ_WRITE));
         Self(v)
     }
 
@@ -39,28 +40,130 @@ impl<T: MathCL> Vector<T> {
     }
 }
 
-// LOCKING CHECKED
+// LOCKING CHECKED BY VALUE
+#[cfg(feature = "def")]
 impl<T: MathCL> Vector<T> {
     #[inline(always)]
-    pub fn add<'a> (&self, rhs: &Self, queue: &CommandQueue, flags: impl Into<Option<MemFlags>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub fn add (&self, rhs: &Self) -> Result<Self, ErrorCL> {
+        let ctx = ContextManager::default();
+        Vector::<T>::add_event(self, rhs, ctx.queue(), T::default_vec_manager(), [])?.wait()
+    }
+
+    #[inline(always)]
+    pub fn sub (&self, rhs: &Self) -> Result<Self, ErrorCL> {
+        let ctx = ContextManager::default();
+        Vector::<T>::sub_event(self, rhs, ctx.queue(), T::default_vec_manager(), [])?.wait()
+    }
+
+    #[inline(always)]
+    pub fn mul (&self, rhs: &Self) -> Result<Self, ErrorCL> {
+        let ctx = ContextManager::default();
+        Vector::<T>::mul_event(self, rhs, ctx.queue(), T::default_vec_manager(), [])?.wait()
+    }
+
+    #[inline(always)]
+    pub fn div (&self, rhs: &Self) -> Result<Self, ErrorCL> {
+        let ctx = ContextManager::default();
+        Vector::<T>::div_event(self, rhs, ctx.queue(), T::default_vec_manager(), [])?.wait()
+    }
+
+    #[inline(always)]
+    pub fn mul_add (&self, rhs: &Self, add: &Self) -> Result<Self, ErrorCL> {
+        let ctx = ContextManager::default();
+        Vector::<T>::mul_add_event(self, rhs, add, ctx.queue(), T::default_vec_manager(), [])?.wait()
+    }
+}
+
+// LOCKING CHECKED BY EVENT
+impl<T: MathCL> Vector<T> {
+    #[inline(always)]
+    pub fn add_event<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
         let len = self.len()?;
         let other = rhs.len()?;
 
         if len != other { panic!("Tried to add vectors of different lengths ({len} v. {other})") }
-        unsafe { self.add_unchecked(rhs, queue, flags, len, prog, wait) }
+        unsafe { self.add_unchecked(rhs, queue, len, prog, wait) }
+    }
+
+    #[inline(always)]
+    pub fn sub_event<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+        let len = self.len()?;
+        let other = rhs.len()?;
+
+        if len != other { panic!("Tried to subtract vectors of different lengths ({len} v. {other})") }
+        unsafe { self.sub_unchecked(rhs, queue, len, prog, wait) }
+    }
+
+    #[inline(always)]
+    pub fn mul_event<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+        let len = self.len()?;
+        let other = rhs.len()?;
+
+        if len != other { panic!("Tried to multiply vectors of different lengths ({len} v. {other})") }
+        unsafe { self.mul_unchecked(rhs, queue, len, prog, wait) }
+    }
+
+    #[inline(always)]
+    pub fn div_event<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+        let len = self.len()?;
+        let other = rhs.len()?;
+
+        if len != other { panic!("Tried to divide vectors of different lengths ({len} v. {other})") }
+        unsafe { self.div_unchecked(rhs, queue, len, prog, wait) }
+    }
+
+    #[inline(always)]
+    pub fn mul_add_event<'a> (&self, rhs: &Self, add: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+        let len = self.len()?;
+
+        let other = rhs.len()?;
+        if len != other { panic!("Tried to multiply vectors of different lengths ({len} v. {other})") }
+
+        let other = add.len()?;
+        if len != other { panic!("Tried to add vectors of different lengths ({len} v. {other})") }
+
+        unsafe { self.mul_add_unchecked(rhs, add, queue, len, prog, wait) }
     }
     
     #[inline(always)]
-    pub fn add_checked<'a> (&self, rhs: &Self, queue: &CommandQueue, flags: impl Into<Option<MemFlags>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<Swap<Self, BaseEvent>>, ErrorCL> {
+    pub fn add_checked<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<Swap<Self, BaseEvent>>, ErrorCL> {
         let len = self.len()?;
         if len != rhs.len()? { return Ok(None); }
-        unsafe { self.add_unchecked(rhs, queue, flags, len, prog, wait).map(Some) }
+        unsafe { self.add_unchecked(rhs, queue, len, prog, wait).map(Some) }
+    }
+
+    #[inline(always)]
+    pub fn sub_checked<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<Swap<Self, BaseEvent>>, ErrorCL> {
+        let len = self.len()?;
+        if len != rhs.len()? { return Ok(None); }
+        unsafe { self.sub_unchecked(rhs, queue, len, prog, wait).map(Some) }
+    }
+
+    #[inline(always)]
+    pub fn mul_checked<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<Swap<Self, BaseEvent>>, ErrorCL> {
+        let len = self.len()?;
+        if len != rhs.len()? { return Ok(None); }
+        unsafe { self.mul_unchecked(rhs, queue, len, prog, wait).map(Some) }
+    }
+
+    #[inline(always)]
+    pub fn div_checked<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<Swap<Self, BaseEvent>>, ErrorCL> {
+        let len = self.len()?;
+        if len != rhs.len()? { return Ok(None); }
+        unsafe { self.div_unchecked(rhs, queue, len, prog, wait).map(Some) }
+    }
+
+    #[inline(always)]
+    pub fn mul_add_checked<'a> (&self, rhs: &Self, add: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<Swap<Self, BaseEvent>>, ErrorCL> {
+        let len = self.len()?;
+        if len != rhs.len()? || len != add.len()? { return Ok(None); }
+        unsafe { self.mul_add_unchecked(rhs, add, queue, len, prog, wait).map(Some) }
     }
 }
 
 // LOCKING UNCHECKED
 impl<T: MathCL> Vector<T> {
-    pub unsafe fn add_unchecked<'a> (&self, rhs: &Self, queue: &CommandQueue, flags: impl Into<Option<MemFlags>>, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub unsafe fn add_unchecked<'a> (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
         let prog = prog.as_ref();
         let max_wg_size = queue.device()?.max_work_group_size()?.get();
 
@@ -69,7 +172,7 @@ impl<T: MathCL> Vector<T> {
             None => self.len()?
         };
 
-        let result = Self::uninit(&prog.context()?, len, flags)?;
+        let result = Self::uninit(&prog.context()?, len)?;
         let mut kernel = prog.as_ref().add.lock();
 
         kernel.set_arg(0, len as u64)?;
@@ -82,32 +185,8 @@ impl<T: MathCL> Vector<T> {
         
         Ok(event.swap(result))
     }
-}
 
-// ASYNC CHECKED
-#[cfg(feature = "async")]
-impl<T: MathCL> Vector<T> {
-    #[inline(always)]
-    pub async fn add_async<'a> (&self, rhs: &Self, queue: &CommandQueue, flags: impl Into<Option<MemFlags>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
-        let len = self.len()?;
-        let other = rhs.len()?;
-
-        if len != other { panic!("Tried to add vectors of different lengths ({len} v. {other})") }
-        unsafe { self.add_async_unchecked(rhs, queue, flags, len, prog, wait).await }
-    }
-    
-    #[inline(always)]
-    pub async fn add_async_checked<'a> (&self, rhs: &Self, queue: &CommandQueue, flags: impl Into<Option<MemFlags>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<Swap<Self, BaseEvent>>, ErrorCL> {
-        let len = self.len()?;
-        if len != rhs.len()? { return Ok(None); }
-        unsafe { self.add_async_unchecked(rhs, queue, flags, len, prog, wait).await.map(Some) }
-    }
-}
-
-// ASYNC UNCHECKED
-#[cfg(feature = "async")]
-impl<T: MathCL> Vector<T> {
-    pub async unsafe fn add_async_unchecked<'a> (&self, rhs: &Self, queue: &CommandQueue, flags: impl Into<Option<MemFlags>>, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub unsafe fn sub_unchecked<'a> (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
         let prog = prog.as_ref();
         let max_wg_size = queue.device()?.max_work_group_size()?.get();
 
@@ -116,7 +195,124 @@ impl<T: MathCL> Vector<T> {
             None => self.len()?
         };
 
-        let result = Self::uninit(&prog.context()?, len, flags)?;
+        let result = Self::uninit(&prog.context()?, len)?;
+        let mut kernel = prog.as_ref().sub.lock();
+
+        kernel.set_arg(0, len as u64)?;
+        kernel.set_mem_arg(1, rhs)?;
+        kernel.set_mem_arg(2, self)?;
+        kernel.set_mem_arg(3, &result)?;
+        
+        let event = kernel.enqueue(queue, &[max_wg_size.min(len), 1, 1], None, wait)?;
+        drop(kernel);
+        
+        Ok(event.swap(result))
+    }
+
+    pub unsafe fn mul_unchecked<'a> (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+        let prog = prog.as_ref();
+        let max_wg_size = queue.device()?.max_work_group_size()?.get();
+
+        let len = match len.into() {
+            Some(x) => x,
+            None => self.len()?
+        };
+
+        let result = Self::uninit(&prog.context()?, len)?;
+        let mut kernel = prog.as_ref().mul.lock();
+
+        kernel.set_arg(0, len as u64)?;
+        kernel.set_mem_arg(1, rhs)?;
+        kernel.set_mem_arg(2, self)?;
+        kernel.set_mem_arg(3, &result)?;
+        
+        let event = kernel.enqueue(queue, &[max_wg_size.min(len), 1, 1], None, wait)?;
+        drop(kernel);
+        
+        Ok(event.swap(result))
+    }
+
+    pub unsafe fn div_unchecked<'a> (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+        let prog = prog.as_ref();
+        let max_wg_size = queue.device()?.max_work_group_size()?.get();
+
+        let len = match len.into() {
+            Some(x) => x,
+            None => self.len()?
+        };
+
+        let result = Self::uninit(&prog.context()?, len)?;
+        let mut kernel = prog.as_ref().div.lock();
+
+        kernel.set_arg(0, len as u64)?;
+        kernel.set_mem_arg(1, rhs)?;
+        kernel.set_mem_arg(2, self)?;
+        kernel.set_mem_arg(3, &result)?;
+        
+        let event = kernel.enqueue(queue, &[max_wg_size.min(len), 1, 1], None, wait)?;
+        drop(kernel);
+        
+        Ok(event.swap(result))
+    }
+
+    pub unsafe fn mul_add_unchecked<'a> (&self, rhs: &Self, add: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+        let prog = prog.as_ref();
+        let max_wg_size = queue.device()?.max_work_group_size()?.get();
+
+        let len = match len.into() {
+            Some(x) => x,
+            None => self.len()?
+        };
+
+        let result = Self::uninit(&prog.context()?, len)?;
+        let mut kernel = prog.as_ref().mul_add.lock();
+
+        kernel.set_arg(0, len as u64)?;
+        kernel.set_mem_arg(1, rhs)?;
+        kernel.set_mem_arg(2, add)?;
+        kernel.set_mem_arg(3, self)?;
+        kernel.set_mem_arg(4, &result)?;
+        
+        let event = kernel.enqueue(queue, &[max_wg_size.min(len), 1, 1], None, wait)?;
+        drop(kernel);
+        
+        Ok(event.swap(result))
+    }
+}
+
+// ASYNC CHECKED
+#[cfg(feature = "async")]
+impl<T: MathCL> Vector<T> {
+    #[inline(always)]
+    pub async fn add_async<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+        let len = self.len()?;
+        let other = rhs.len()?;
+
+        if len != other { panic!("Tried to add vectors of different lengths ({len} v. {other})") }
+        unsafe { self.add_async_unchecked(rhs, queue, len, prog, wait).await }
+    }
+    
+    #[inline(always)]
+    pub async fn add_async_checked<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<Swap<Self, BaseEvent>>, ErrorCL> {
+        let len = self.len()?;
+        if len != rhs.len()? { return Ok(None); }
+        unsafe { self.add_async_unchecked(rhs, queue, len, prog, wait).await.map(Some) }
+    }
+}
+
+// ASYNC UNCHECKED
+#[cfg(feature = "async")]
+impl<T: MathCL> Vector<T> {
+    pub async unsafe fn add_async_unchecked<'a> (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+        let prog = prog.as_ref();
+        let max_wg_size = queue.device()?.max_work_group_size()?.get();
+
+        let len = match len.into() {
+            Some(x) => x,
+            None => self.len()?
+        };
+
+        let result = Self::uninit(&prog.context()?, len)?;
         let mut kernel = prog.as_ref().add.future_lock().await;
 
         kernel.set_arg(0, len as u64)?;
@@ -139,8 +335,7 @@ cfg_if::cfg_if! {
         
             #[inline(always)]
             fn add (self, rhs: Self) -> Self::Output {
-                let ctx = ContextManager::default();
-                Vector::<T>::add(self, rhs, ctx.queue(), None, T::default_vec_manager(), []).unwrap().wait().unwrap()
+                Vector::<T>::add(self, rhs).unwrap()
             }
         }
 
@@ -168,6 +363,107 @@ cfg_if::cfg_if! {
             #[inline(always)]
             fn add (self, rhs: Self) -> Self::Output {
                 &self + &rhs
+            }
+        }
+    }
+}
+
+// VECTOR-VECTOR SUBTRACTION
+cfg_if::cfg_if! {
+    if #[cfg(feature = "def")] {
+        impl<T: MathCL> core::ops::Sub for &'_ Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn sub (self, rhs: Self) -> Self::Output {
+                Vector::<T>::sub(self, rhs).unwrap()
+            }
+        }
+
+        impl<T: MathCL> core::ops::Sub<Vector<T>> for &'_ Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn sub (self, rhs: Vector<T>) -> Self::Output {
+                self - &rhs
+            }
+        }
+
+        impl<T: MathCL> core::ops::Sub<&'_ Vector<T>> for Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn sub (self, rhs: &Self) -> Self::Output {
+                &self - rhs
+            }
+        }
+
+        impl<T: MathCL> core::ops::Sub for Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn sub (self, rhs: Self) -> Self::Output {
+                &self - &rhs
+            }
+        }
+    }
+}
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "def")] {
+        use num_traits::MulAdd;
+
+        impl<T: MathCL> MulAdd for &'_ Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn mul_add (self, rhs: Self, rhs2: Self) -> Self::Output {
+                Vector::<T>::mul_add(self, rhs, rhs2).unwrap()
+            }
+        }
+
+        impl<T: MathCL> MulAdd<Vector<T>, &'_ Vector<T>> for &'_ Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn mul_add (self, rhs: Vector<T>, add: &Vector<T>) -> Self::Output {
+                MulAdd::mul_add(self, &rhs, add)
+            }
+        }
+
+        impl<T: MathCL> MulAdd<&'_ Vector<T>, Vector<T>> for &'_ Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn mul_add (self, rhs: &Vector<T>, add: Vector<T>) -> Self::Output {
+                MulAdd::mul_add(self, rhs, &add)
+            }
+        }
+
+        impl<T: MathCL> MulAdd<Vector<T>, &'_ Vector<T>> for Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn mul_add (self, rhs: Vector<T>, add: &Vector<T>) -> Self::Output {
+                MulAdd::mul_add(&self, &rhs, add)
+            }
+        }
+
+        impl<T: MathCL> MulAdd<&'_ Vector<T>, Vector<T>> for Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn mul_add (self, rhs: &Vector<T>, add: Vector<T>) -> Self::Output {
+                MulAdd::mul_add(&self, rhs, &add)
+            }
+        }
+
+        impl<T: MathCL> MulAdd for Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn mul_add (self, rhs: Vector<T>, add: Vector<T>) -> Self::Output {
+                MulAdd::mul_add(&self, &rhs, &add)
             }
         }
     }
