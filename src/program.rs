@@ -154,3 +154,6 @@ impl Drop for Program {
         }
     }
 }
+
+unsafe impl Send for Program {}
+unsafe impl Sync for Program {}

@@ -1,4 +1,3 @@
-use core::borrow::Borrow;
 use crate::{event::{Event, BaseEvent}, prelude::ErrorCL};
 
 pub struct Then<O, E: Event, F: Unpin + FnOnce(E::Result) -> O> {
@@ -21,7 +20,7 @@ impl<O, E: Event, F: Unpin + FnOnce(E::Result) -> O> Then<O, E, F> {
     }
 }
 
-impl<O, E: Event + Unpin, F: Unpin + FnOnce(E::Result) -> O> Event for Then<O, E, F> {
+impl<O, E: Event, F: Unpin + FnOnce(E::Result) -> O> Event for Then<O, E, F> {
     type Result = O;
 
     #[inline(always)]
@@ -49,9 +48,9 @@ impl<O, E: Event + Unpin, F: Unpin + FnOnce(E::Result) -> O> futures::Future for
     }
 }
 
-impl<O, E: Event, F: Unpin + FnOnce(E::Result) -> O> Borrow<BaseEvent> for Then<O, E, F> {
+impl<O, E: Event, F: Unpin + FnOnce(E::Result) -> O> AsRef<BaseEvent> for Then<O, E, F> {
     #[inline(always)]
-    fn borrow(&self) -> &BaseEvent {
+    fn as_ref(&self) -> &BaseEvent {
         self.inner.borrow_base()
     }
 }

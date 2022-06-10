@@ -90,6 +90,13 @@ impl Event for BaseEvent {
     }    
 }
 
+impl AsRef<BaseEvent> for BaseEvent {
+    #[inline(always)]
+    fn as_ref(&self) -> &BaseEvent {
+        self
+    }
+}
+
 #[cfg(not(feature = "async"))]
 impl Clone for BaseEvent {
     #[inline(always)]

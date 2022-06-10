@@ -1,0 +1,23 @@
+void kernel abs_reg (const int n, __global const real* in, __global real* out) {
+    for (int id = get_global_id(0); id<n; id += get_global_size(0)) {
+        out[id] = fabs(in[id]);
+    }
+}
+
+void kernel sqrt_reg (const int n, __global const real *in, __global real* out) {
+    for (int id = get_global_id(0); id<n; id += get_global_size(0)) {
+        out[id] = sqrt(in[id]);
+    }
+}
+
+void kernel abs_assign (const int n, __global real *in) {
+    for (int id = get_global_id(0); id<n; id += get_global_size(0)) {
+        in[id] = fabs(in[id]);
+    }
+}
+
+void kernel sqrt_assign (const int n, __global real *in) {
+    for (int id = get_global_id(0); id<n; id += get_global_size(0)) {
+        in[id] = sqrt(in[id]);
+    }
+}

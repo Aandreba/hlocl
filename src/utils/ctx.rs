@@ -1,6 +1,11 @@
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::{sync::atomic::{AtomicUsize, Ordering}, ops::{Deref, DerefMut}};
 use alloc::vec::Vec;
 use crate::{prelude::{Context, Device, ErrorCL, CommandQueue}, context::ContextProps, queue::CommandQueueProps};
+
+#[cfg(feature = "def")]
+lazy_static! {
+    static ref MANAGER: ContextManager = ContextManager::new(Device::all(), None, None).unwrap();
+}
 
 pub struct ContextManager {
     ctx: Context,
@@ -20,6 +25,12 @@ impl ContextManager {
         })
     }
 
+    #[cfg(feature = "def")]
+    #[inline(always)]
+    pub fn default () -> &'static ContextManager {
+        &MANAGER
+    }
+
     #[inline(always)]
     pub fn context (&self) -> &Context {
         &self.ctx
@@ -37,16 +48,18 @@ impl ContextManager {
     }
 }
 
-impl AsRef<Context> for ContextManager {
+impl Deref for ContextManager {
+    type Target = Context;
+
     #[inline(always)]
-    fn as_ref(&self) -> &Context {
-        self.context()
+    fn deref(&self) -> &Self::Target {
+        &self.ctx
     }
 }
 
-impl AsRef<CommandQueue> for ContextManager {
+impl DerefMut for ContextManager {
     #[inline(always)]
-    fn as_ref(&self) -> &CommandQueue {
-        self.queue()
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.ctx
     }
 }

@@ -1,11 +1,11 @@
 use core::{fmt::Debug, mem::MaybeUninit};
 use alloc::{vec::Vec, string::{String}};
 use alloc::string::ToString;
-use cl_sys::{clGetPlatformIDs, cl_platform_id, clGetPlatformInfo, cl_platform_info, c_uchar, CL_PLATFORM_PROFILE, CL_PLATFORM_VERSION, CL_PLATFORM_NAME, CL_PLATFORM_VENDOR, CL_PLATFORM_EXTENSIONS, CL_PLATFORM_HOST_TIMER_RESOLUTION, cl_uchar};
+use cl_sys::{cl_platform_id, clGetPlatformInfo, cl_platform_info, c_uchar, CL_PLATFORM_PROFILE, CL_PLATFORM_VERSION, CL_PLATFORM_NAME, CL_PLATFORM_VENDOR, CL_PLATFORM_EXTENSIONS, CL_PLATFORM_HOST_TIMER_RESOLUTION, cl_uchar, clGetPlatformIDs};
 
 use crate::{prelude::ErrorCL, error::ErrorType};
 
-lazy_static::lazy_static! {
+lazy_static! {
     static ref PLATFORMS : Vec<Platform> = unsafe {
         let mut cnt = 0;
         tri_panic!(clGetPlatformIDs(0, core::ptr::null_mut(), &mut cnt));

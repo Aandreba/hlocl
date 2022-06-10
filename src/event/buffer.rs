@@ -57,9 +57,9 @@ impl<T: Copy + Unpin> futures::Future for CopyBuffer<T> {
     }
 }
 
-impl<T: Copy + Unpin> Borrow<BaseEvent> for CopyBuffer<T> {
+impl<T: Copy + Unpin> AsRef<BaseEvent> for CopyBuffer<T> {
     #[inline(always)]
-    fn borrow(&self) -> &BaseEvent {
+    fn as_ref(&self) -> &BaseEvent {
         &self.inner
     }
 }
@@ -118,9 +118,9 @@ impl<T: Unpin + Copy> futures::Future for WriteBuffer<'_, T> {
     }
 }
 
-impl<T: Copy + Unpin> Borrow<BaseEvent> for WriteBuffer<'_, T> {
+impl<T: Copy + Unpin> AsRef<BaseEvent> for WriteBuffer<'_, T> {
     #[inline(always)]
-    fn borrow(&self) -> &BaseEvent {
+    fn as_ref(&self) -> &BaseEvent {
         &self.inner
     }
 }
@@ -178,9 +178,9 @@ impl<'a, T: Unpin + Copy> futures::Future for ReadBuffer<'a, T> {
     }
 }
 
-impl<T: Copy + Unpin> Borrow<BaseEvent> for ReadBuffer<'_, T> {
+impl<T: Copy + Unpin> AsRef<BaseEvent> for ReadBuffer<'_, T> {
     #[inline(always)]
-    fn borrow(&self) -> &BaseEvent {
+    fn as_ref(&self) -> &BaseEvent {
         &self.inner
     }
 }

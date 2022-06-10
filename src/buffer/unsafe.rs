@@ -1,7 +1,7 @@
 use core::{ptr::{NonNull, addr_of}, marker::PhantomData, mem::{MaybeUninit, ManuallyDrop}};
 use alloc::{vec::Vec, borrow::Cow};
 use cl_sys::{cl_mem, clRetainMemObject, clReleaseMemObject, clCreateBuffer, cl_mem_info, clGetMemObjectInfo, CL_MEM_FLAGS, CL_MEM_SIZE, c_void, CL_MEM_HOST_PTR, CL_MEM_MAP_COUNT, CL_MEM_REFERENCE_COUNT, CL_MEM_CONTEXT, CL_MEM_ASSOCIATED_MEMOBJECT, CL_MEM_OFFSET, clCreateSubBuffer, CL_BUFFER_CREATE_TYPE_REGION};
-use crate::{prelude::{Context, ErrorCL, CommandQueue}, event::{ReadBuffer, BaseEvent, WriteBuffer, Event, CopyBuffer}};
+use crate::{prelude::{Context, ErrorCL, CommandQueue}, event::{ReadBuffer, BaseEvent, WriteBuffer, Event, CopyBuffer, various::Swap}};
 use super::{MemFlags};
 
 #[derive(PartialEq, Eq, Hash)]
@@ -144,12 +144,12 @@ impl<T: Copy + Unpin> UnsafeBuffer<T> {
     }
 
     #[inline(always)]
-    pub unsafe fn read<'a> (&self, queue: &CommandQueue, blocking: bool, offset: usize, len: usize, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<impl Event<Result = Vec<T>>, ErrorCL> where T: 'static {
+    pub unsafe fn read<'a> (&self, queue: &CommandQueue, blocking: bool, offset: usize, len: usize, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Vec<T>, ReadBuffer<'static, T>>, ErrorCL> where T: 'static {
         let mut dst = Vec::with_capacity(len);
         dst.set_len(len);
 
         let read = self.read_into_ptr(queue, blocking, offset, dst.as_mut_ptr(), len, wait)?;
-        Ok(read.then(move |_| dst))
+        Ok(read.swap(dst))
     }
 
     #[inline(always)]

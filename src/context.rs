@@ -3,6 +3,11 @@ use cl_sys::{cl_context, cl_context_properties, CL_CONTEXT_PLATFORM, CL_CONTEXT_
 use crate::error::ErrorCL;
 use crate::prelude::{Platform, Device};
 
+#[cfg(feature = "def")]
+lazy_static! {
+    static ref CONTEXT: Context = crate::utils::ContextManager::default().context().clone();
+}
+
 /// OpenCL context
 #[derive(PartialEq, Eq, Hash)]
 #[repr(transparent)]
@@ -16,14 +21,10 @@ impl Context {
         };
 
         let len = u32::try_from(devices.len()).expect("too many devices");
-        #[cfg(feature = "std")]
-        let pfn_notify = Some(notify);
-        #[cfg(not(feature = "std"))]
-        let pfn_notify = None;
         let mut err = 0;
 
         let id = unsafe {
-            clCreateContext(props, len, devices.as_ptr().cast(), pfn_notify, core::ptr::null_mut(), &mut err)
+            clCreateContext(props, len, devices.as_ptr().cast(), None, core::ptr::null_mut(), &mut err)
         };
 
         if err != 0 {
@@ -31,6 +32,12 @@ impl Context {
         }
 
         Ok(Context(id))
+    }
+
+    #[cfg(feature = "def")]
+    #[inline(always)]
+    pub fn default () -> &'static Context {
+        &CONTEXT
     }
 }
 
@@ -106,9 +113,3 @@ impl Default for ContextProps {
 
 unsafe impl Send for ContextProps {}
 unsafe impl Sync for ContextProps {}
-
-#[cfg(feature = "std")]
-extern "C" fn notify (program: cl_sys::cl_program, cb: *const cl_sys::c_void, private_info: cl_sys::size_t, user_data: *mut cl_sys::c_void) {
-    let errinfo = std::ffi::CStr::from_ptr(errinfo);
-    std::io::stderr().write_all(errinfo.to_bytes()).unwrap()
-}
