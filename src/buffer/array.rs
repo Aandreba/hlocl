@@ -1,12 +1,12 @@
 use core::ops::RangeBounds;
 use alloc::vec::Vec;
 
-use crate::{prelude::{Context, ErrorCL, CommandQueue}, event::{BaseEvent, Event, WriteBuffer}};
+use crate::{prelude::{Context, ErrorCL, CommandQueue}, event::{BaseEvent, Event, WriteBuffer, various::Then}};
 use super::{UnsafeBuffer, MemFlags, MemBuffer};
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone)]
 #[repr(transparent)]
-pub struct ArrayBuffer<T: Copy + Unpin, const N: usize> (MemBuffer<T>);
+pub struct ArrayBuffer<T: 'static + Copy + Unpin, const N: usize> (MemBuffer<T>);
 
 impl<T: Copy + Unpin, const N: usize> ArrayBuffer<T, N> {
     #[inline(always)]
@@ -32,7 +32,7 @@ impl<T: Copy + Unpin, const N: usize> ArrayBuffer<T, N> {
     #[inline(always)]
     pub fn to_array<'a> (&self, queue: &CommandQueue, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<impl Event<Result = [T;N]>, ErrorCL> where T: 'static {
         let vec = self.to_vec(queue, wait)?;
-        Ok(Event::then(vec, |x| unsafe { <[T;N]>::try_from(x).unwrap_unchecked() }))
+        Ok(Event::map(vec, |x| unsafe { <[T;N]>::try_from(x).unwrap_unchecked() }))
     }
 
     #[inline(always)]
@@ -42,7 +42,7 @@ impl<T: Copy + Unpin, const N: usize> ArrayBuffer<T, N> {
     }
 
     #[inline(always)]
-    pub fn set<'a> (&mut self, queue: &CommandQueue, idx: usize, v: T, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<WriteBuffer<T>>, ErrorCL> {
+    pub fn set<'a> (&mut self, queue: &CommandQueue, idx: usize, v: T, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<Then<WriteBuffer, impl FnOnce(&mut ())>>, ErrorCL> {
         if idx >= N { return Ok(None); }
         unsafe { self.set_unchecked(queue, idx, v, wait).map(Some) }
     }

@@ -1,6 +1,6 @@
 use crate::{event::{Event, BaseEvent}};
 
-pub struct Then<E: Event, F: Unpin + FnOnce(&mut E::Result)> {
+pub struct Map<O, E: Event, F: Unpin + FnOnce(E::Result) -> O> {
     pub(crate) inner: E,
     #[cfg(feature = "async")]
     pub(crate) f: Option<F>,
@@ -8,7 +8,7 @@ pub struct Then<E: Event, F: Unpin + FnOnce(&mut E::Result)> {
     pub(crate) f: F
 }
 
-impl<E: Event, F: Unpin + FnOnce(&mut E::Result)> Then<E, F> {
+impl<O, E: Event, F: Unpin + FnOnce(E::Result) -> O> Map<O, E, F> {
     #[cfg(feature = "async")]
     pub fn new (inner: E, f: F) -> Self {
         Self { inner, f: Some(f) }
@@ -20,37 +20,35 @@ impl<E: Event, F: Unpin + FnOnce(&mut E::Result)> Then<E, F> {
     }
 }
 
-impl<E: Event, F: Unpin + FnOnce(&mut E::Result)> Event for Then<E, F> {
-    type Result = E::Result;
+impl<O, E: Event, F: Unpin + FnOnce(E::Result) -> O> Event for Map<O, E, F> {
+    type Result = O;
 
     #[inline(always)]
     fn wait (self) -> Result<Self::Result, crate::prelude::ErrorCL> {
-        let mut v = self.inner.wait()?;
+        let v = self.inner.wait()?;
         #[cfg(feature = "async")]
-        self.f.unwrap()(&mut v);
+        return Ok(self.f.unwrap()(v));
         #[cfg(not(feature = "async"))]
-        (self.f)(&mut v);
-        return Ok(v)
+        Ok((self.f)(v))
     }
 }
 
 #[cfg(feature = "async")]
-impl<E: Event + Unpin, F: Unpin + FnOnce(&mut E::Result)> futures::Future for Then<E, F> {
-    type Output = E::Output;
+impl<O, E: Event + Unpin, F: Unpin + FnOnce(E::Result) -> O> futures::Future for Map<O, E, F> {
+    type Output = Result<O, crate::prelude::ErrorCL>;
 
     #[inline(always)]
     fn poll(mut self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> core::task::Poll<Self::Output> {
-        if let core::task::Poll::Ready(mut out) = core::pin::Pin::new(&mut self.inner).poll(cx)? {
+        if let core::task::Poll::Ready(out) = core::pin::Pin::new(&mut self.inner).poll(cx)? {
             let f = self.f.take().unwrap();
-            f(&mut out);
-            return core::task::Poll::Ready(Ok(out))
+            return core::task::Poll::Ready(Ok(f(out)))
         }
 
         core::task::Poll::Pending
     }
 }
 
-impl<E: Event, F: Unpin + FnOnce(&mut E::Result)> AsRef<BaseEvent> for Then<E, F> {
+impl<O, E: Event, F: Unpin + FnOnce(E::Result) -> O> AsRef<BaseEvent> for Map<O, E, F> {
     #[inline(always)]
     fn as_ref(&self) -> &BaseEvent {
         self.inner.borrow_base()

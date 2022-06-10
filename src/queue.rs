@@ -1,7 +1,6 @@
 use core::mem::MaybeUninit;
-
 use cl_sys::{cl_command_queue_properties, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, CL_QUEUE_PROFILING_ENABLE, cl_command_queue, clRetainCommandQueue, clReleaseCommandQueue, clCreateCommandQueue, cl_command_queue_info, clGetCommandQueueInfo, CL_QUEUE_CONTEXT, CL_QUEUE_DEVICE, CL_QUEUE_PROPERTIES};
-use crate::prelude::{Context, ErrorCL, Device};
+use crate::{prelude::{Context, ErrorCL, Device}, utils::ContextManager};
 
 /// OpenCL command queue
 #[derive(PartialEq, Eq, Hash)]
@@ -44,6 +43,12 @@ impl CommandQueue {
     #[inline(always)]
     pub fn properties (&self) -> Result<CommandQueueProps, ErrorCL> {
         self.get_info(CL_QUEUE_PROPERTIES)
+    }
+
+    #[cfg(feature = "def")]
+    #[inline(always)]
+    pub fn default () -> &'static CommandQueue {
+        ContextManager::default().queue()
     }
 
     #[inline]

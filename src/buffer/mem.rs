@@ -1,12 +1,12 @@
-use core::ops::RangeBounds;
+use core::{ops::RangeBounds, fmt::Debug};
 use alloc::vec::Vec;
 
-use crate::{prelude::{Context, ErrorCL, CommandQueue}, event::{BaseEvent, Event, WriteBuffer, various::Swap, ReadBuffer}};
+use crate::{prelude::{Context, ErrorCL, CommandQueue}, event::{BaseEvent, Event, WriteBuffer, various::{Swap, Then}, ReadBuffer}, utils::ContextManager};
 use super::{UnsafeBuffer, MemFlags};
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone)]
 #[repr(transparent)]
-pub struct MemBuffer<T: Copy + Unpin> (pub(super) UnsafeBuffer<T>);
+pub struct MemBuffer<T: 'static + Copy + Unpin> (pub(super) UnsafeBuffer<T>);
 
 impl<T: Copy + Unpin> MemBuffer<T> {
     #[inline(always)]
@@ -20,7 +20,7 @@ impl<T: Copy + Unpin> MemBuffer<T> {
     }
 
     #[inline(always)]
-    pub fn to_vec<'a> (&self, queue: &CommandQueue, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Vec<T>, ReadBuffer<'static, T>>, ErrorCL> where T: 'static {
+    pub fn to_vec<'a> (&self, queue: &CommandQueue, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Vec<T>, ReadBuffer<'static>>, ErrorCL> where T: 'static {
         unsafe { self.read(queue, false, 0, self.len()?, wait) }
     }
 
@@ -32,7 +32,7 @@ impl<T: Copy + Unpin> MemBuffer<T> {
     }
 
     #[inline(always)]
-    pub fn set<'a> (&mut self, queue: &CommandQueue, idx: usize, v: T, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<WriteBuffer<T>, ErrorCL> {
+    pub fn set<'a> (&mut self, queue: &CommandQueue, idx: usize, v: T, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Then<WriteBuffer, impl FnOnce(&mut ())>, ErrorCL> {
         let len = self.len()?;
         if idx >= len { panic!("Index out of bounds. Tried to access index {idx} of a buffer of size {len}") }
         unsafe { self.set_unchecked(queue, idx, v, wait) }
@@ -59,13 +59,13 @@ impl<T: Copy + Unpin> MemBuffer<T> {
     }
     
     #[inline(always)]
-    pub fn get_checked<'a> (&self, queue: &CommandQueue, idx: usize, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<impl Event<Result = T>>, ErrorCL> where T: 'static {
+    pub fn get_checked<'a> (&self, queue: &CommandQueue, idx: usize, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<impl Event<Result = T>>, ErrorCL> {
         if idx >= self.len()? { return Ok(None); }
         unsafe { self.get_unchecked(queue, idx, wait).map(Some) }
     }
 
     #[inline(always)]
-    pub fn set_checked<'a> (&mut self, queue: &CommandQueue, idx: usize, v: T, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<WriteBuffer<T>>, ErrorCL> {
+    pub fn set_checked<'a> (&mut self, queue: &CommandQueue, idx: usize, v: T, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<Then<WriteBuffer, impl FnOnce(&mut ())>>, ErrorCL> {
         if idx >= self.len()? { return Ok(None); }
         unsafe { self.set_unchecked(queue, idx, v, wait).map(Some) }
     }
@@ -88,6 +88,15 @@ impl<T: Copy + Unpin> MemBuffer<T> {
 
         if offset + slice_len > len { return Ok(None); }
         unsafe { self.slice_unchecked(flags, offset, slice_len).map(|x| Some(Self(x))) }
+    }
+}
+
+#[cfg(feature = "def")]
+impl<T: 'static + Copy + Unpin + Debug> Debug for MemBuffer<T> {
+    #[inline(always)]
+    fn fmt (&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let inner = self.to_vec(ContextManager::default().queue(), []).unwrap().wait().unwrap();
+        Debug::fmt(&inner, f)
     }
 }
 

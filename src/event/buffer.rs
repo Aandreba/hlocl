@@ -1,19 +1,18 @@
-use core::{borrow::Borrow, pin::Pin};
-use alloc::{vec::Vec, borrow::Cow};
+use core::{borrow::Borrow, pin::Pin, marker::PhantomData};
+use alloc::{vec::Vec};
 use cl_sys::{cl_event, clEnqueueWriteBuffer, clEnqueueCopyBuffer, clEnqueueReadBuffer};
 use crate::{prelude::{ErrorCL, CommandQueue}, buffer::{UnsafeBuffer}};
 use super::{BaseEvent, Event};
 
 /// OpenCL event that reads from one buffer to another 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone)]
 pub struct CopyBuffer<T: Copy + Unpin> {
     inner: BaseEvent,
-    src: UnsafeBuffer<T>,
     dst: UnsafeBuffer<T>
 }
 
 impl<T: Copy + Unpin> CopyBuffer<T> {
-    pub unsafe fn new<'a> (queue: &CommandQueue, src_offset: usize, dst_offset: usize, len: usize, src: UnsafeBuffer<T>, dst: UnsafeBuffer<T>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Self, ErrorCL> {
+    pub unsafe fn new<'a> (queue: &CommandQueue, src_offset: usize, dst_offset: usize, len: usize, src: &UnsafeBuffer<T>, dst: UnsafeBuffer<T>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Self, ErrorCL> {
         let wait = wait.into_iter().map(|x| x.0).collect::<Vec<_>>();
         let wait_len = u32::try_from(wait.len()).unwrap();
         let wait = match wait_len {
@@ -26,7 +25,7 @@ impl<T: Copy + Unpin> CopyBuffer<T> {
 
         if err == 0 {
             let inner = BaseEvent::new(event)?;
-            return Ok(Self { inner, src, dst });
+            return Ok(Self { inner, dst });
         }
 
         Err(ErrorCL::from(err))
@@ -65,16 +64,15 @@ impl<T: Copy + Unpin> AsRef<BaseEvent> for CopyBuffer<T> {
 }
 
 /// Event that writes from host memory to an OpenCL buffer
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct WriteBuffer<'a, T: Copy + Unpin> {
+#[derive(Clone)]
+pub struct WriteBuffer<'a> {
     inner: BaseEvent,
-    dst: UnsafeBuffer<T>,
-    src: Pin<Cow<'a, [T]>>
+    phtm: PhantomData<&'a ()>
 }
 
-impl<'a, T: Unpin + Copy> WriteBuffer<'a, T> {
-    pub unsafe fn new<'b> (queue: &CommandQueue, blocking: bool, offset: usize, src: impl Into<Cow<'a, [T]>>, dst: UnsafeBuffer<T>, wait: impl IntoIterator<Item = &'b BaseEvent>) -> Result<Self, ErrorCL> {
-        let src = Pin::new(src.into());
+impl<'a> WriteBuffer<'a> {
+    pub unsafe fn new<'b, T: Copy + Unpin> (queue: &CommandQueue, blocking: bool, offset: usize, src: &'a [T], dst: &mut UnsafeBuffer<T>, wait: impl IntoIterator<Item = &'b BaseEvent>) -> Result<Self, ErrorCL> {
+        let src = Pin::new(src);
 
         let wait = wait.into_iter().map(|x| x.borrow().0).collect::<Vec<_>>();
         let wait_len = u32::try_from(wait.len()).unwrap();
@@ -92,14 +90,14 @@ impl<'a, T: Unpin + Copy> WriteBuffer<'a, T> {
 
         if err == 0 {
             let inner = BaseEvent::new(event)?;
-            return Ok(Self { inner, src, dst });
+            return Ok(Self { inner, phtm: PhantomData });
         }
 
         Err(ErrorCL::from(err))
     }
 }
 
-impl<T: Copy + Unpin> Event for WriteBuffer<'_, T> {
+impl Event for WriteBuffer<'_> {
     type Result = ();
 
     #[inline(always)]
@@ -109,7 +107,7 @@ impl<T: Copy + Unpin> Event for WriteBuffer<'_, T> {
 }
 
 #[cfg(feature = "async")]
-impl<T: Unpin + Copy> futures::Future for WriteBuffer<'_, T> {
+impl futures::Future for WriteBuffer<'_> {
     type Output = Result<(), ErrorCL>;
 
     #[inline(always)]
@@ -118,7 +116,7 @@ impl<T: Unpin + Copy> futures::Future for WriteBuffer<'_, T> {
     }
 }
 
-impl<T: Copy + Unpin> AsRef<BaseEvent> for WriteBuffer<'_, T> {
+impl AsRef<BaseEvent> for WriteBuffer<'_> {
     #[inline(always)]
     fn as_ref(&self) -> &BaseEvent {
         &self.inner
@@ -126,15 +124,13 @@ impl<T: Copy + Unpin> AsRef<BaseEvent> for WriteBuffer<'_, T> {
 }
 
 /// Event that reads from an OpenCL buffer to host memory
-#[derive(PartialEq, Eq, Hash)]
-pub struct ReadBuffer<'a, T: Copy + Unpin> {
+pub struct ReadBuffer<'a> {
     inner: BaseEvent,
-    src: UnsafeBuffer<T>,
-    dst: Option<&'a mut [T]>
+    phtm: PhantomData<&'a ()>
 }
 
-impl<'a, T: Copy + Unpin> ReadBuffer<'a, T> {
-    pub unsafe fn new<'b> (queue: &CommandQueue, blocking: bool, offset: usize, src: UnsafeBuffer<T>, dst: &'a mut [T], wait: impl IntoIterator<Item = &'b BaseEvent>) -> Result<Self, ErrorCL> {
+impl<'a> ReadBuffer<'a> {
+    pub unsafe fn new<'b, T: Copy + Unpin> (queue: &CommandQueue, blocking: bool, offset: usize, src: &UnsafeBuffer<T>, dst: &'a mut [T], wait: impl IntoIterator<Item = &'b BaseEvent>) -> Result<Self, ErrorCL> {
         let wait = wait.into_iter().map(|x| x.0).collect::<Vec<_>>();
         let wait_len = u32::try_from(wait.len()).unwrap();
         let wait = match wait_len {
@@ -151,15 +147,14 @@ impl<'a, T: Copy + Unpin> ReadBuffer<'a, T> {
 
         if err == 0 {
             let inner = BaseEvent::new(event)?;
-            let dst = Some(dst);
-            return Ok(Self { inner, src, dst });
+            return Ok(Self { inner, phtm: PhantomData });
         }
 
         Err(ErrorCL::from(err))
     }
 }
 
-impl<'a, T: Copy + Unpin> Event for ReadBuffer<'a, T> {
+impl<'a> Event for ReadBuffer<'a> {
     type Result = ();
 
     #[inline(always)]
@@ -169,7 +164,7 @@ impl<'a, T: Copy + Unpin> Event for ReadBuffer<'a, T> {
 }
 
 #[cfg(feature = "async")]
-impl<'a, T: Unpin + Copy> futures::Future for ReadBuffer<'a, T> {
+impl<'a> futures::Future for ReadBuffer<'a> {
     type Output = Result<(), ErrorCL>;
 
     #[inline(always)]
@@ -178,7 +173,7 @@ impl<'a, T: Unpin + Copy> futures::Future for ReadBuffer<'a, T> {
     }
 }
 
-impl<T: Copy + Unpin> AsRef<BaseEvent> for ReadBuffer<'_, T> {
+impl AsRef<BaseEvent> for ReadBuffer<'_> {
     #[inline(always)]
     fn as_ref(&self) -> &BaseEvent {
         &self.inner

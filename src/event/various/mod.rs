@@ -1,1 +1,1 @@
-flat_mod!(then, swap);
+flat_mod!(map, then, swap);

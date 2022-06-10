@@ -1,18 +1,40 @@
 #[cfg(test)]
 extern crate std;
-use cl_sys::{cl_char, cl_uchar, cl_short, cl_ushort, cl_int, cl_uint, cl_long, cl_ulong, cl_float, cl_double};
 
-pub trait MathCL: 'static + Copy + Unpin + Into<Self::C> {
-    type C;
+use crate::vec::VectorManager;
+use crate::prelude::Context;
+
+pub trait MathCL: 'static + Copy + Unpin {
     const NAME : &'static str;
+
+    #[cfg(feature = "def")]
+    fn default_vec_manager () -> &'static VectorManager<Self>;
 }
 
 macro_rules! impl_math {
-    ($($ty:ty => $c:ty as $name:literal),+) => {
+    ($($ty:ty => $c:ident as $name:literal),+) => {
         $(
             impl MathCL for $ty {
-                type C = $c;
                 const NAME : &'static str = $name;
+
+                #[cfg(feature = "def")]
+                #[inline(always)]
+                fn default_vec_manager () -> &'static VectorManager<Self> {
+                    &$c
+                }
+            }
+
+            #[cfg(feature = "def")]
+            lazy_static! {
+                static ref $c : VectorManager<$ty> = VectorManager::new(Context::default().clone()).unwrap();
+            }
+
+            #[cfg(feature = "def")]
+            impl VectorManager<$ty> {
+                #[inline(always)]
+                pub fn default () -> &'static VectorManager<$ty> {
+                    &$c
+                }
             }
         )*
     };
@@ -20,29 +42,29 @@ macro_rules! impl_math {
 
 #[cfg(not(feature = "half"))]
 impl_math! {
-    u8 => cl_uchar as "uchar",
-    i8 => cl_char as "char",
-    u16 => cl_ushort as "ushort",
-    i16 => cl_short as "short",
-    u32 => cl_uint as "uint",
-    i32 => cl_int as "int",
-    u64 => cl_ulong as "ulong",
-    i64 => cl_long as "long",
-    f32 => cl_float as "float",
-    f64 => cl_double as "double"
+    u8 => UCHAR as "uchar",
+    i8 => CHAR as "char",
+    u16 => USHORT as "ushort",
+    i16 => SHORT as "short",
+    u32 => UINT as "uint",
+    i32 => INT as "int",
+    u64 => ULONG as "ulong",
+    i64 => LONG as "long",
+    f32 => FLOAT as "float",
+    f64 => DOUBLE as "double"
 }
 
 #[cfg(feature = "half")]
 impl_math! {
-    u8 => cl_uchar as "uchar",
-    i8 => cl_char as "char",
-    u16 => cl_ushort as "ushort",
-    i16 => cl_short as "short",
-    u32 => cl_uint as "uint",
-    i32 => cl_int as "int",
-    u64 => cl_ulong as "ulong",
-    i64 => cl_long as "long",
-    f32 => cl_float as "float",
-    f64 => cl_double as "double",
-    half::f16 => cl_sys::cl_half as "half",
+    u8 => UCHAR as "uchar",
+    i8 => CHAR as "char",
+    u16 => USHORT as "ushort",
+    i16 => SHORT as "short",
+    u32 => UINT as "uint",
+    i32 => INT as "int",
+    u64 => ULONG as "ulong",
+    i64 => LONG as "long",
+    f32 => FLOAT as "float",
+    f64 => DOUBLE as "double"
+    half::f16 => HALF as "half",
 }

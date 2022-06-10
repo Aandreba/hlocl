@@ -1,6 +1,6 @@
 use cl_sys::{CL_COMMAND_NDRANGE_KERNEL, CL_COMMAND_TASK, CL_COMMAND_NATIVE_KERNEL, CL_COMMAND_READ_BUFFER, CL_COMMAND_WRITE_BUFFER, CL_COMMAND_COPY_BUFFER, CL_COMMAND_READ_IMAGE, CL_COMMAND_WRITE_IMAGE, CL_COMMAND_COPY_IMAGE, CL_COMMAND_COPY_IMAGE_TO_BUFFER, CL_COMMAND_COPY_BUFFER_TO_IMAGE, CL_COMMAND_MAP_BUFFER, CL_COMMAND_MAP_IMAGE, CL_COMMAND_UNMAP_MEM_OBJECT, CL_COMMAND_MARKER, CL_COMMAND_ACQUIRE_GL_OBJECTS, CL_COMMAND_RELEASE_GL_OBJECTS, CL_COMPLETE, CL_RUNNING, CL_SUBMITTED, CL_QUEUED};
 use crate::prelude::{CommandQueue, ErrorCL};
-use self::various::{Then, Swap};
+use self::various::{Map, Swap, Then};
 
 flat_mod!(base, user, buffer);
 pub mod various;
@@ -27,7 +27,12 @@ pub trait Event: Sized + Unpin + AsRef<BaseEvent> + futures::Future<Output = Res
     }
 
     #[inline(always)]
-    fn then<O, F: Unpin + FnOnce(Self::Result) -> O> (self, f: F) -> Then<O, Self, F> {
+    fn map<O, F: Unpin + FnOnce(Self::Result) -> O> (self, f: F) -> Map<O, Self, F> {
+        Map::new(self, f)
+    }
+
+    #[inline(always)]
+    fn then<F: Unpin + FnOnce(&mut Self::Result)> (self, f: F) -> Then<Self, F> {
         Then::new(self, f)
     }
 
@@ -50,30 +55,37 @@ pub trait Event: Sized + AsRef<BaseEvent> {
 
     #[inline(always)]
     fn command_queue (&self) -> Result<CommandQueue, ErrorCL> {
-        BaseEvent::command_queue(self.borrow())
+        BaseEvent::command_queue(self.borrow_base())
     }
 
     #[inline(always)]
     fn ty (&self) -> Result<CommandType, ErrorCL> {
-        BaseEvent::ty(self.borrow())
+        BaseEvent::ty(self.borrow_base())
     }
 
     #[inline(always)]
     fn status (&self) -> Result<EventStatus, ErrorCL> {
-        BaseEvent::status(self.borrow())
+        BaseEvent::status(self.borrow_base())
     }
 
     #[inline(always)]
-    fn then<O, F: FnOnce(Self::Result) -> O> (self, f: F) -> Then<O, Self, F> {
-        Then {
-            inner: self,
-            f
-        }
+    fn map<O, F: Unpin + FnOnce(Self::Result) -> O> (self, f: F) -> Map<O, Self, F> {
+        Map::new(self, f)
+    }
+
+    #[inline(always)]
+    fn then<F: Unpin + FnOnce(&mut Self::Result)> (self, f: F) -> Then<Self, F> {
+        Then::new(self, f)
+    }
+
+    #[inline(always)]
+    fn swap<O: Unpin> (self, v: O) -> Swap<O, Self> {
+        Swap::new(self, v)
     }
 
     #[inline(always)]
     fn borrow_base (&self) -> &BaseEvent {
-        self.borrow().borrow()
+        self.as_ref()
     }
 }
 

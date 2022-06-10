@@ -152,28 +152,85 @@ macro_rules! impl_prog {
 #[cfg(not(feature = "async"))]
 #[macro_export]
 macro_rules! impl_prog {
-    ($(
+    ($( #[$ctx_meta:meta] )* $ctx_vis:vis $ctx:ident = {$(
         $( #[$meta:meta] )*
         $vis:vis $id:ident as $name:ident @ $path:literal => $($fun:ident),+
-    );+) => {
+    );+}) => {
+        // CONTEXT
+        $( #[$ctx_meta] )*
+        $ctx_vis struct $ctx<T: $crate::utils::MathCL, R = parking_lot::RawMutex> where R: parking_lot::lock_api::RawMutex {
+            ctx: $crate::context::Context,
+            $(
+                pub $id: $name<T, R>
+            ),+
+        }
+
+        impl<T: $crate::utils::MathCL, R> $ctx<T, R> where R: parking_lot::lock_api::RawMutex {
+            pub fn new (ctx: $crate::prelude::Context) -> Result<Self, $crate::prelude::ErrorCL> {
+                $(let $id = $name::new(&ctx)?;)*
+
+                Ok(Self {
+                    ctx,
+                    $(
+                        $id
+                    ),+
+                })
+            }
+        }
+
+        impl<T: $crate::utils::MathCL, R: parking_lot::lock_api::RawMutex> core::ops::Deref for $ctx<T, R> {
+            type Target = $crate::prelude::Context;
+        
+            #[inline(always)]
+            fn deref(&self) -> &Self::Target {
+                &self.ctx
+            }
+        }
+        
+        impl<T: $crate::utils::MathCL, R: parking_lot::lock_api::RawMutex> core::ops::DerefMut for $ctx<T, R> {
+            #[inline(always)]
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.ctx
+            }
+        }
+
+        impl<T: $crate::utils::MathCL, R: parking_lot::lock_api::RawMutex> core::convert::AsRef<$ctx<T, R>> for $ctx<T, R> {
+            #[inline(always)]
+            fn as_ref(&self) -> &$ctx<T, R> {
+                &self
+            }
+        }
+
+        $(
+            impl<T: $crate::utils::MathCL, R: parking_lot::lock_api::RawMutex> core::convert::AsRef<$name<T, R>> for $ctx<T, R> {
+                #[inline(always)]
+                fn as_ref(&self) -> &$name<T, R> {
+                    &self.$id
+                }
+            }
+        )+
+
+        // PROGRAMS
         $(
             $( #[$meta] )*
-            $vis struct $name <R = parking_lot::RawMutex> where R: parking_lot::lock_api::RawMutex {
+            $vis struct $name <T: $crate::utils::MathCL, R = parking_lot::RawMutex> where R: parking_lot::lock_api::RawMutex {
+                phtm: core::marker::PhantomData<T>,
                 program: $crate::prelude::Program,
                 $(
                     pub $fun: parking_lot::lock_api::Mutex<R, $crate::prelude::Kernel>,
                 )*
             }
 
-            impl<R: parking_lot::lock_api::RawMutex> $name<R> {
+            impl<T: $crate::utils::MathCL, R: parking_lot::lock_api::RawMutex> $name<T, R> {
                 pub fn new<'a> (ctx: &$crate::prelude::Context) -> Result<Self, $crate::prelude::ErrorCL> {
-                    let program = $crate::prelude::Program::from_source(ctx, include_str!($path))?;
+                    let program = $crate::prelude::Program::from_source(ctx, &std::format!("typedef {} number;\n{}", T::NAME, include_str!($path)))?;
                     
                     $(
                         let $fun = $crate::prelude::Kernel::new(&program, stringify!($fun)).map(parking_lot::lock_api::Mutex::new)?;
                     )+
 
                     Ok(Self {
+                        phtm: core::marker::PhantomData,
                         program,
                         $($fun),+
                     })
@@ -185,7 +242,14 @@ macro_rules! impl_prog {
                 }
             }
 
-            impl<R: parking_lot::lock_api::RawMutex> core::ops::Deref for $name<R> {
+            impl<T: $crate::utils::MathCL, R: parking_lot::lock_api::RawMutex> core::convert::AsRef<$name<T,R>> for $name<T,R> {
+                #[inline(always)]
+                fn as_ref(&self) -> &$name<T, R> {
+                    self
+                }
+            }
+
+            impl<T: $crate::utils::MathCL, R: parking_lot::lock_api::RawMutex> core::ops::Deref for $name<T, R> {
                 type Target = $crate::prelude::Program;
             
                 #[inline(always)]
@@ -194,7 +258,7 @@ macro_rules! impl_prog {
                 }
             }
             
-            impl<R: parking_lot::lock_api::RawMutex> core::ops::DerefMut for $name<R> {
+            impl<T: $crate::utils::MathCL, R: parking_lot::lock_api::RawMutex> core::ops::DerefMut for $name<T, R> {
                 #[inline(always)]
                 fn deref_mut(&mut self) -> &mut Self::Target {
                     &mut self.program

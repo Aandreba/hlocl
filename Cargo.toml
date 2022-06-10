@@ -19,7 +19,6 @@ parking_lot = "0.9.0"
 future-parking_lot = { version = "0.3.3", optional = true }
 futures = { version = "0.3.21", optional = true }
 half = "1.8.2"
-num-traits = "0.2"
 
 [dev-dependencies]
 tokio = { veriosn = "1", features = ["full"] }

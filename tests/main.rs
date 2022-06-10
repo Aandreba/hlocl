@@ -36,17 +36,9 @@ fn sum () {
 
 #[test]
 fn vec () {
-    let ctx = ContextManager::default();
-    let manager = VectorManager::<f32>::new(Context::clone(&ctx)).unwrap();
+    let alpha = Vector::from_default(&[1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
+    let beta = Vector::from_default(&[6.0, 7.0, 8.0, 9.0, 10.0]).unwrap();
+    let result = alpha + beta;
 
-    let alpha = Vector::new(&manager, None, &[1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
-    let beta = Vector::new(&manager, None, &[6.0, 7.0, 8.0, 9.0, 10.0]).unwrap();
-
-    let sum = alpha.add(&beta, ctx.queue(), None, &manager, []);
-    let mut sum = sum.unwrap().wait().unwrap();
-    
-    sum.set(ctx.queue(), 0, PI, []).unwrap().wait().unwrap();
-    let sum = sum.to_vec(ctx.queue(), []).unwrap().wait().unwrap();
-    
-    println!("{:?}", sum)
+    println!("{:?}", result)
 }

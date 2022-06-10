@@ -2,16 +2,22 @@
 extern crate std;
 
 use core::ops::{Deref, DerefMut};
-use crate::{prelude::{Context, ErrorCL, MemBuffer, Event, BaseEvent, CommandQueue}, buffer::MemFlags, utils::{MathCL}, event::various::Swap};
-use super::XArithProgram;
+use crate::{prelude::{Context, ErrorCL, MemBuffer, Event, BaseEvent, CommandQueue}, buffer::MemFlags, utils::{MathCL, ContextManager}, event::various::Swap};
+use super::{XArithProgram};
 #[cfg(feature = "async")]
 use future_parking_lot::mutex::FutureLockable;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct Vector<T: MathCL> (MemBuffer<T>);
 
 impl<T: MathCL> Vector<T> {
+    #[cfg(feature = "def")]
+    #[inline(always)]
+    pub fn from_default (v: &[T]) -> Result<Self, ErrorCL> {
+        Self::new(Context::default(), None, v)
+    }
+
     #[inline(always)]
     pub fn new (ctx: &Context, flags: impl Into<Option<MemFlags>>, v: &[T]) -> Result<Self, ErrorCL> {
         MemBuffer::new(ctx, flags, v).map(Self)
@@ -122,6 +128,48 @@ impl<T: MathCL> Vector<T> {
         drop(kernel);
         
         Ok(event.swap(result))
+    }
+}
+
+// VECTOR-VECTOR ADDITION
+cfg_if::cfg_if! {
+    if #[cfg(feature = "def")] {
+        impl<T: MathCL> core::ops::Add for &'_ Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn add (self, rhs: Self) -> Self::Output {
+                let ctx = ContextManager::default();
+                Vector::<T>::add(self, rhs, ctx.queue(), None, T::default_vec_manager(), []).unwrap().wait().unwrap()
+            }
+        }
+
+        impl<T: MathCL> core::ops::Add<Vector<T>> for &'_ Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn add (self, rhs: Vector<T>) -> Self::Output {
+                self + &rhs
+            }
+        }
+
+        impl<T: MathCL> core::ops::Add<&'_ Vector<T>> for Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn add (self, rhs: &Self) -> Self::Output {
+                &self + rhs
+            }
+        }
+
+        impl<T: MathCL> core::ops::Add for Vector<T> {
+            type Output = Vector<T>;
+        
+            #[inline(always)]
+            fn add (self, rhs: Self) -> Self::Output {
+                &self + &rhs
+            }
+        }
     }
 }
 
