@@ -1,12 +1,14 @@
 #[cfg(test)]
 extern crate std;
 
+use core::fmt::Debug;
+
 use crate::vec::VectorManager;
 use crate::prelude::Context;
 #[cfg(feature = "half")]
 use half::f16;
 
-pub trait MathCL: 'static + Copy + Unpin {
+pub trait MathCL: 'static + Copy + Unpin + Debug {
     const NAME : &'static str;
     const FLOAT : bool;
 

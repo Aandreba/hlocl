@@ -132,6 +132,7 @@ impl<T: MathCL> Vector<T> {
         unsafe { self.mul_add_unchecked(rhs, add, queue, len, prog, wait) }
     }
 
+    // TODO FIX
     pub fn sum_event (&self, queue: &CommandQueue, prog: impl AsRef<XHozProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<impl Event<Result = T>, ErrorCL> {
         let prog = prog.as_ref();
         let max_wg_size = queue.device()?.max_work_group_size()?.get();
@@ -140,19 +141,10 @@ impl<T: MathCL> Vector<T> {
         let len = self.len()?;
 
         let next_pow_2 = len.next_power_of_two();
-        let tmp_size = len / max_wg_size;
-        let use_tmp = tmp_size != 0;
-
-        let tmp;
-        if use_tmp {
-            tmp = unsafe { MemBuffer::<T>::uninit(&ctx, tmp_size, None)? };
-        } else {
-            tmp = unsafe { MemBuffer::<T>::uninit(&ctx, 1, None)? };
-        }
+        let tmp_size = 1 + len / max_wg_size;
+        let tmp = unsafe { MemBuffer::<T>::uninit(&ctx, tmp_size, None)? };
 
         let mut kernel = prog.sum.lock();
-
-        // Regular sum
         unsafe {
             kernel.set_arg(0, len as u64)?;
             kernel.set_mem_arg(1, self)?;
@@ -160,28 +152,31 @@ impl<T: MathCL> Vector<T> {
             kernel.alloc_arg::<T>(3, next_pow_2)?;
         }
         
-        let event = kernel.enqueue(queue, &[max_wg_size.min(len), 1, 1], None, wait)?;
+        let sum = kernel.enqueue(queue, &[max_wg_size.min(len), 1, 1], None, wait)?;
         drop(kernel);
+
+        sum.wait()?;
+        panic!("{:?}", tmp);
         
-        // Epilogue
-        if use_tmp {
+        if tmp_size > 1 || next_pow_2 != len {
             let result = unsafe { MemBuffer::<T>::uninit(&ctx, 1, MemFlags::WRITE_ONLY)? };
             let mut kernel = prog.sum_epilogue.lock();
 
+            // Epilogue
             unsafe {
                 kernel.set_mem_arg(0, &tmp)?;
                 kernel.set_mem_arg(1, &result)?;
                 kernel.alloc_arg::<T>(2, tmp_size)?;
             }
 
-            let epilogue = kernel.enqueue(queue, &[max_wg_size.min(len), 1, 1], None, [&event])?;
+            let epilogue = kernel.enqueue(queue, &[max_wg_size.min(len), 1, 1], None, [sum])?;
             drop(kernel);
 
             // Result
             return unsafe { result.get_unchecked(queue, 0, [epilogue]) }
         }
         
-        unsafe { tmp.get_unchecked(queue, 0, [event]) }
+        unsafe { tmp.get_unchecked(queue, 0, [sum]) }
     }
 }
     

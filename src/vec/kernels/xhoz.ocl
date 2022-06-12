@@ -1,4 +1,4 @@
-void kernel sum (const int n, const __global number *in, __global number *out, __local number* lm) {
+void kernel sum (const ulong n, const __global number *in, __global number *out, __local number* lm) {
     const int wgs = get_local_size(0);
     const int lid = get_local_id(0);
     const int wgid = get_group_id(0);
@@ -7,14 +7,14 @@ void kernel sum (const int n, const __global number *in, __global number *out, _
 
     // Performs the first steps of the reduction
     number acc = 0;
-    for (int id = wgid*wgs + lid; id < n; id += delta)
+    for (ulong id = wgid*wgs + lid; id < n; id += delta)
         acc += in[id];
 
     lm[lid] = acc;
     barrier(CLK_LOCAL_MEM_FENCE);
 
     // Performs reduction in local memory
-    for (int s=wgs/2; s>0; s=s>>1) {
+    for (ulong s=wgs/2; s>0; s=s>>1) {
         if (lid < s)
             lm[lid] += lm[lid + s];
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -25,23 +25,23 @@ void kernel sum (const int n, const __global number *in, __global number *out, _
         out[wgid] = lm[0];
 }
 
-void kernel prod (const int n, const __global number *in, __global number *out, __local number* lm) {
-    const int wgs = get_local_size(0);
-    const int lid = get_local_id(0);
-    const int wgid = get_group_id(0);
-    const int num_groups = get_num_groups(0);
-    const int delta = wgs * num_groups;
+void kernel prod (const ulong n, const __global number *in, __global number *out, __local number* lm) {
+    const ulong wgs = get_local_size(0);
+    const ulong lid = get_local_id(0);
+    const ulong wgid = get_group_id(0);
+    const ulong num_groups = get_num_groups(0);
+    const ulong delta = wgs * num_groups;
 
     // Performs the first steps of the reduction
     number acc = 1;
-    for (int id = wgid*wgs + lid; id < n; id += delta)
+    for (ulong id = wgid*wgs + lid; id < n; id += delta)
         acc *= in[id];
 
     lm[lid] = acc;
     barrier(CLK_LOCAL_MEM_FENCE);
 
     // Performs reduction in local memory
-    for (int s=wgs/2; s>0; s=s>>1) {
+    for (ulong s=wgs/2; s>0; s=s>>1) {
         if (lid < s)
             lm[lid] *= lm[lid + s];
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -52,16 +52,16 @@ void kernel prod (const int n, const __global number *in, __global number *out, 
         out[wgid] = lm[0];
 }
 
-void kernel dot_reg (const int n, const __global number *lhs, const __global number *rhs, __global number *out, __local number* lm) {
-    const int wgs = get_local_size(0);
-    const int lid = get_local_id(0);
-    const int wgid = get_group_id(0);
-    const int num_groups = get_num_groups(0);
-    const int delta = wgs * num_groups;
+void kernel dot_reg (const ulong n, const __global number *lhs, const __global number *rhs, __global number *out, __local number* lm) {
+    const ulong wgs = get_local_size(0);
+    const ulong lid = get_local_id(0);
+    const ulong wgid = get_group_id(0);
+    const ulong num_groups = get_num_groups(0);
+    const ulong delta = wgs * num_groups;
 
     // Performs the first steps of the reduction
     number acc = 0;
-    for (int id = wgid*wgs + lid; id < n; id += delta) {
+    for (ulong id = wgid*wgs + lid; id < n; id += delta) {
         #if IS_FLOAT
         acc = fma(lhs[id], rhs[id], acc);
         #else
@@ -73,7 +73,7 @@ void kernel dot_reg (const int n, const __global number *lhs, const __global num
     barrier(CLK_LOCAL_MEM_FENCE);
 
     // Performs reduction in local memory
-    for (int s=wgs/2; s>0; s=s>>1) {
+    for (ulong s=wgs/2; s>0; s=s>>1) {
         if (lid < s)
             lm[lid] += lm[lid + s];
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -85,15 +85,15 @@ void kernel dot_reg (const int n, const __global number *lhs, const __global num
 }
 
 void kernel sum_epilogue (const __global number* input, __global number* sum, __local number* lm) {
-    const int lid = get_local_id(0);
-    const int wgs = get_local_size(0);
+    const ulong lid = get_local_id(0);
+    const ulong wgs = get_local_size(0);
 
     // Performs the first step of the reduction while loading the data
     lm[lid] = input[lid] + input[lid + wgs];
     barrier(CLK_LOCAL_MEM_FENCE);
 
     // Performs reduction in local memory
-    for (int s=wgs/2; s>0; s=s>>1) {
+    for (ulong s=wgs/2; s>0; s=s>>1) {
         if (lid < s)
             lm[lid] += lm[lid + s];
         
@@ -106,15 +106,15 @@ void kernel sum_epilogue (const __global number* input, __global number* sum, __
 }
 
 void kernel prod_epilogue (const __global number* input, __global number* prod, __local number* lm) {
-    const int lid = get_local_id(0);
-    const int wgs = get_local_size(0);
+    const ulong lid = get_local_id(0);
+    const ulong wgs = get_local_size(0);
 
     // Performs the first step of the reduction while loading the data
     lm[lid] = input[lid] * input[lid + wgs];
     barrier(CLK_LOCAL_MEM_FENCE);
 
     // Performs reduction in local memory
-    for (int s=wgs/2; s>0; s=s>>1) {
+    for (ulong s=wgs/2; s>0; s=s>>1) {
         if (lid < s)
             lm[lid] *= lm[lid + s];
         
