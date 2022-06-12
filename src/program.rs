@@ -1,7 +1,7 @@
 use core::{mem::MaybeUninit, num::NonZeroUsize};
 use alloc::{string::{String, ToString}, vec::Vec};
 use cl_sys::{cl_program, clReleaseProgram, clCreateProgramWithSource, clRetainProgram, clBuildProgram, cl_program_info, clGetProgramInfo, CL_PROGRAM_REFERENCE_COUNT, CL_PROGRAM_CONTEXT, CL_PROGRAM_NUM_DEVICES, CL_PROGRAM_DEVICES, CL_PROGRAM_SOURCE, clGetProgramBuildInfo, CL_PROGRAM_BUILD_LOG};
-use crate::{prelude::{ErrorCL, Context, Device}, error::ErrorType};
+use crate::{prelude::{ErrorCL, Context, Device}};
 
 /// OpenCL program
 #[derive(PartialEq, Eq, Hash)]

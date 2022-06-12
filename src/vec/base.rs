@@ -1,10 +1,9 @@
 #[cfg(test)]
 extern crate std;
 
-use core::{ops::{Deref, DerefMut}, mem::MaybeUninit};
+use core::{ops::{Deref, DerefMut}};
 use crate::{prelude::{Context, ErrorCL, MemBuffer, Event, BaseEvent, CommandQueue}, buffer::MemFlags, utils::{MathCL, ContextManager}, event::various::Swap};
 use super::{XArithProgram, XHozProgram};
-use cl_sys::libc::tm;
 #[cfg(feature = "async")]
 use future_parking_lot::mutex::FutureLockable;
 
@@ -154,9 +153,6 @@ impl<T: MathCL> Vector<T> {
         
         let sum = kernel.enqueue(queue, &[max_wg_size.min(len), 1, 1], None, wait)?;
         drop(kernel);
-
-        sum.wait()?;
-        panic!("{:?}", tmp);
         
         if tmp_size > 1 || next_pow_2 != len {
             let result = unsafe { MemBuffer::<T>::uninit(&ctx, 1, MemFlags::WRITE_ONLY)? };

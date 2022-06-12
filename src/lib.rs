@@ -273,7 +273,7 @@ pub mod prelude {
     pub use crate::device::Device;
     pub use crate::context::Context;
     pub use crate::queue::CommandQueue;
-    pub use crate::error::ErrorCL;
+    pub use crate::error::{Result, ErrorCL};
     pub use crate::program::Program;
     pub use crate::event::{Event, BaseEvent};
     pub use crate::buffer::{MemBuffer};

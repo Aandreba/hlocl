@@ -3,6 +3,8 @@ use crate::prelude::{CommandQueue, ErrorCL};
 use self::various::{Map, Swap, Then};
 
 flat_mod!(base, user, buffer);
+#[cfg(feature = "async")]
+flat_mod!(future);
 pub mod various;
 
 #[cfg(feature = "async")]
