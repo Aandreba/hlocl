@@ -1,9 +1,10 @@
 #[cfg(test)]
 extern crate std;
 
-use core::ops::{Deref, DerefMut};
+use core::{ops::{Deref, DerefMut}, mem::MaybeUninit};
 use crate::{prelude::{Context, ErrorCL, MemBuffer, Event, BaseEvent, CommandQueue}, buffer::MemFlags, utils::{MathCL, ContextManager}, event::various::Swap};
-use super::{XArithProgram};
+use super::{XArithProgram, XHozProgram};
+use cl_sys::libc::tm;
 #[cfg(feature = "async")]
 use future_parking_lot::mutex::FutureLockable;
 
@@ -46,38 +47,44 @@ impl<T: MathCL> Vector<T> {
     #[inline(always)]
     pub fn add (&self, rhs: &Self) -> Result<Self, ErrorCL> {
         let ctx = ContextManager::default();
-        Vector::<T>::add_event(self, rhs, ctx.queue(), T::default_vec_manager(), [])?.wait()
+        Vector::<T>::add_event(self, rhs, ctx.queue(), T::default_vec_manager(), BaseEvent::empty())?.wait()
     }
 
     #[inline(always)]
     pub fn sub (&self, rhs: &Self) -> Result<Self, ErrorCL> {
         let ctx = ContextManager::default();
-        Vector::<T>::sub_event(self, rhs, ctx.queue(), T::default_vec_manager(), [])?.wait()
+        Vector::<T>::sub_event(self, rhs, ctx.queue(), T::default_vec_manager(), BaseEvent::empty())?.wait()
     }
 
     #[inline(always)]
     pub fn mul (&self, rhs: &Self) -> Result<Self, ErrorCL> {
         let ctx = ContextManager::default();
-        Vector::<T>::mul_event(self, rhs, ctx.queue(), T::default_vec_manager(), [])?.wait()
+        Vector::<T>::mul_event(self, rhs, ctx.queue(), T::default_vec_manager(), BaseEvent::empty())?.wait()
     }
 
     #[inline(always)]
     pub fn div (&self, rhs: &Self) -> Result<Self, ErrorCL> {
         let ctx = ContextManager::default();
-        Vector::<T>::div_event(self, rhs, ctx.queue(), T::default_vec_manager(), [])?.wait()
+        Vector::<T>::div_event(self, rhs, ctx.queue(), T::default_vec_manager(), BaseEvent::empty())?.wait()
     }
 
     #[inline(always)]
     pub fn mul_add (&self, rhs: &Self, add: &Self) -> Result<Self, ErrorCL> {
         let ctx = ContextManager::default();
-        Vector::<T>::mul_add_event(self, rhs, add, ctx.queue(), T::default_vec_manager(), [])?.wait()
+        Vector::<T>::mul_add_event(self, rhs, add, ctx.queue(), T::default_vec_manager(), BaseEvent::empty())?.wait()
+    }
+
+    #[inline(always)]
+    pub fn sum (&self) -> Result<T, ErrorCL> {
+        let ctx = ContextManager::default();
+        Vector::<T>::sum_event(&self, ctx.queue(), T::default_vec_manager(), BaseEvent::empty())?.wait()
     }
 }
 
 // LOCKING CHECKED BY EVENT
 impl<T: MathCL> Vector<T> {
     #[inline(always)]
-    pub fn add_event<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub fn add_event (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
         let len = self.len()?;
         let other = rhs.len()?;
 
@@ -86,7 +93,7 @@ impl<T: MathCL> Vector<T> {
     }
 
     #[inline(always)]
-    pub fn sub_event<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub fn sub_event (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
         let len = self.len()?;
         let other = rhs.len()?;
 
@@ -95,7 +102,7 @@ impl<T: MathCL> Vector<T> {
     }
 
     #[inline(always)]
-    pub fn mul_event<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub fn mul_event (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
         let len = self.len()?;
         let other = rhs.len()?;
 
@@ -104,7 +111,7 @@ impl<T: MathCL> Vector<T> {
     }
 
     #[inline(always)]
-    pub fn div_event<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub fn div_event (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
         let len = self.len()?;
         let other = rhs.len()?;
 
@@ -113,7 +120,7 @@ impl<T: MathCL> Vector<T> {
     }
 
     #[inline(always)]
-    pub fn mul_add_event<'a> (&self, rhs: &Self, add: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub fn mul_add_event (&self, rhs: &Self, add: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
         let len = self.len()?;
 
         let other = rhs.len()?;
@@ -124,7 +131,61 @@ impl<T: MathCL> Vector<T> {
 
         unsafe { self.mul_add_unchecked(rhs, add, queue, len, prog, wait) }
     }
+
+    pub fn sum_event (&self, queue: &CommandQueue, prog: impl AsRef<XHozProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<impl Event<Result = T>, ErrorCL> {
+        let prog = prog.as_ref();
+        let max_wg_size = queue.device()?.max_work_group_size()?.get();
+
+        let ctx = queue.context()?;
+        let len = self.len()?;
+
+        let next_pow_2 = len.next_power_of_two();
+        let tmp_size = len / max_wg_size;
+        let use_tmp = tmp_size != 0;
+
+        let tmp;
+        if use_tmp {
+            tmp = unsafe { MemBuffer::<T>::uninit(&ctx, tmp_size, None)? };
+        } else {
+            tmp = unsafe { MemBuffer::<T>::uninit(&ctx, 1, None)? };
+        }
+
+        let mut kernel = prog.sum.lock();
+
+        // Regular sum
+        unsafe {
+            kernel.set_arg(0, len as u64)?;
+            kernel.set_mem_arg(1, self)?;
+            kernel.set_mem_arg(2, &tmp)?;
+            kernel.alloc_arg::<T>(3, next_pow_2)?;
+        }
+        
+        let event = kernel.enqueue(queue, &[max_wg_size.min(len), 1, 1], None, wait)?;
+        drop(kernel);
+        
+        // Epilogue
+        if use_tmp {
+            let result = unsafe { MemBuffer::<T>::uninit(&ctx, 1, MemFlags::WRITE_ONLY)? };
+            let mut kernel = prog.sum_epilogue.lock();
+
+            unsafe {
+                kernel.set_mem_arg(0, &tmp)?;
+                kernel.set_mem_arg(1, &result)?;
+                kernel.alloc_arg::<T>(2, tmp_size)?;
+            }
+
+            let epilogue = kernel.enqueue(queue, &[max_wg_size.min(len), 1, 1], None, [&event])?;
+            drop(kernel);
+
+            // Result
+            return unsafe { result.get_unchecked(queue, 0, [epilogue]) }
+        }
+        
+        unsafe { tmp.get_unchecked(queue, 0, [event]) }
+    }
+}
     
+impl<T: MathCL> Vector<T> {
     #[inline(always)]
     pub fn add_checked<'a> (&self, rhs: &Self, queue: &CommandQueue, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Option<Swap<Self, BaseEvent>>, ErrorCL> {
         let len = self.len()?;
@@ -163,7 +224,7 @@ impl<T: MathCL> Vector<T> {
 
 // LOCKING UNCHECKED
 impl<T: MathCL> Vector<T> {
-    pub unsafe fn add_unchecked<'a> (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub unsafe fn add_unchecked (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
         let prog = prog.as_ref();
         let max_wg_size = queue.device()?.max_work_group_size()?.get();
 
@@ -173,7 +234,7 @@ impl<T: MathCL> Vector<T> {
         };
 
         let result = Self::uninit(&prog.context()?, len)?;
-        let mut kernel = prog.as_ref().add.lock();
+        let mut kernel = prog.add.lock();
 
         kernel.set_arg(0, len as u64)?;
         kernel.set_mem_arg(1, rhs)?;
@@ -186,7 +247,7 @@ impl<T: MathCL> Vector<T> {
         Ok(event.swap(result))
     }
 
-    pub unsafe fn sub_unchecked<'a> (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub unsafe fn sub_unchecked (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
         let prog = prog.as_ref();
         let max_wg_size = queue.device()?.max_work_group_size()?.get();
 
@@ -196,7 +257,7 @@ impl<T: MathCL> Vector<T> {
         };
 
         let result = Self::uninit(&prog.context()?, len)?;
-        let mut kernel = prog.as_ref().sub.lock();
+        let mut kernel = prog.sub.lock();
 
         kernel.set_arg(0, len as u64)?;
         kernel.set_mem_arg(1, rhs)?;
@@ -209,7 +270,7 @@ impl<T: MathCL> Vector<T> {
         Ok(event.swap(result))
     }
 
-    pub unsafe fn mul_unchecked<'a> (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub unsafe fn mul_unchecked (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
         let prog = prog.as_ref();
         let max_wg_size = queue.device()?.max_work_group_size()?.get();
 
@@ -219,7 +280,7 @@ impl<T: MathCL> Vector<T> {
         };
 
         let result = Self::uninit(&prog.context()?, len)?;
-        let mut kernel = prog.as_ref().mul.lock();
+        let mut kernel = prog.mul.lock();
 
         kernel.set_arg(0, len as u64)?;
         kernel.set_mem_arg(1, rhs)?;
@@ -232,7 +293,7 @@ impl<T: MathCL> Vector<T> {
         Ok(event.swap(result))
     }
 
-    pub unsafe fn div_unchecked<'a> (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub unsafe fn div_unchecked (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
         let prog = prog.as_ref();
         let max_wg_size = queue.device()?.max_work_group_size()?.get();
 
@@ -242,7 +303,7 @@ impl<T: MathCL> Vector<T> {
         };
 
         let result = Self::uninit(&prog.context()?, len)?;
-        let mut kernel = prog.as_ref().div.lock();
+        let mut kernel = prog.div.lock();
 
         kernel.set_arg(0, len as u64)?;
         kernel.set_mem_arg(1, rhs)?;
@@ -255,7 +316,7 @@ impl<T: MathCL> Vector<T> {
         Ok(event.swap(result))
     }
 
-    pub unsafe fn mul_add_unchecked<'a> (&self, rhs: &Self, add: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub unsafe fn mul_add_unchecked (&self, rhs: &Self, add: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
         let prog = prog.as_ref();
         let max_wg_size = queue.device()?.max_work_group_size()?.get();
 
@@ -265,7 +326,7 @@ impl<T: MathCL> Vector<T> {
         };
 
         let result = Self::uninit(&prog.context()?, len)?;
-        let mut kernel = prog.as_ref().mul_add.lock();
+        let mut kernel = prog.mul_add.lock();
 
         kernel.set_arg(0, len as u64)?;
         kernel.set_mem_arg(1, rhs)?;

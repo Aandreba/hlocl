@@ -40,8 +40,9 @@ impl Kernel {
     }
 
     #[inline(always)]
-    pub unsafe fn alloc_arg (&mut self, idx: u32, size: usize) -> Result<(), ErrorCL> {
-        let err = clSetKernelArg(self.0, idx, size, core::ptr::null_mut());
+    pub unsafe fn alloc_arg<T> (&mut self, idx: u32, len: usize) -> Result<(), ErrorCL> {
+        let arg_size = len.checked_mul(core::mem::size_of::<T>()).expect("Kernel argument size overflow");
+        let err = clSetKernelArg(self.0, idx, arg_size, core::ptr::null_mut());
         if err == 0 { return Ok(()); }
         Err(ErrorCL::from(err))
     }
@@ -106,14 +107,14 @@ impl Kernel {
         self.get_arg_info_string(CL_KERNEL_ARG_NAME, idx)
     }
 
-    pub fn enqueue<'a, const N: usize> (&mut self, queue: &CommandQueue, global_dims: &[usize; N], local_dims: Option<&[usize; N]>, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<BaseEvent, ErrorCL> {        
+    pub fn enqueue<const N: usize> (&mut self, queue: &CommandQueue, global_dims: &[usize; N], local_dims: Option<&[usize; N]>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<BaseEvent, ErrorCL> {        
         let dim_len = u32::try_from(N).expect("Too many work dimensions");
         let local_dims = match local_dims {
             Some(x) => x.as_ptr(),
             None => core::ptr::null()
         };
 
-        let wait = wait.into_iter().map(|x| x.0).collect::<Vec<_>>();
+        let wait = wait.into_iter().map(|x| x.as_ref().0).collect::<Vec<_>>();
         let wait_len = u32::try_from(wait.len()).unwrap();
         let wait = match wait_len {
             0 => core::ptr::null(),

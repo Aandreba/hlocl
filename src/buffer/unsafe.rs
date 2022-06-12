@@ -102,13 +102,13 @@ impl<T: Copy + Unpin> UnsafeBuffer<T> {
     }
 
     #[inline(always)]
-    pub unsafe fn get_unchecked<'a> (&self, queue: &CommandQueue, idx: usize, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<impl Event<Result = T>, ErrorCL> where T: 'static {
+    pub unsafe fn get_unchecked (&self, queue: &CommandQueue, idx: usize, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<impl Event<Result = T>, ErrorCL> where T: 'static {
         let evt = self.read(queue, false, idx, 1, wait)?;
         Ok(Event::map(evt, |x| x[0]))
     }
 
     #[inline(always)]
-    pub unsafe fn set_unchecked<'a> (&mut self, queue: &CommandQueue, idx: usize, v: T, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Then<WriteBuffer, impl FnOnce(&mut ())>, ErrorCL> where T: 'static {
+    pub unsafe fn set_unchecked (&mut self, queue: &CommandQueue, idx: usize, v: T, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Then<WriteBuffer, impl FnOnce(&mut ())>, ErrorCL> where T: 'static {
         let ptr = Box::into_raw(Box::new(v));
         let evt = self.write(queue, false, idx, core::slice::from_raw_parts(ptr, 1), wait)?;
         // TODO potential memory leak?
@@ -116,12 +116,8 @@ impl<T: Copy + Unpin> UnsafeBuffer<T> {
     }
 
     #[inline(always)]
-    pub unsafe fn slice_unchecked (&self, flags: Option<MemFlags>, offset: usize, len: usize) -> Result<Self, ErrorCL> {
-        let flags = match flags {
-            Some(x) => x,
-            None => self.flags()? & (MemFlags::READ_WRITE | MemFlags::READ_ONLY | MemFlags::WRITE_ONLY)
-        };
-
+    pub unsafe fn slice_unchecked (&self, offset: usize, len: usize) -> Result<Self, ErrorCL> {
+        let flags = self.flags()? & (MemFlags::READ_WRITE | MemFlags::READ_ONLY | MemFlags::WRITE_ONLY);
         let offset = offset.checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
         let len = len.checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
 
@@ -141,12 +137,12 @@ impl<T: Copy + Unpin> UnsafeBuffer<T> {
     }
 
     #[inline(always)]
-    pub unsafe fn copy_to<'a> (&self, queue: &CommandQueue, src_pffset: usize, dst: UnsafeBuffer<T>, dst_offset: usize, len: usize, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<CopyBuffer<T>, ErrorCL> {
+    pub unsafe fn copy_to (&self, queue: &CommandQueue, src_pffset: usize, dst: UnsafeBuffer<T>, dst_offset: usize, len: usize, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<CopyBuffer<T>, ErrorCL> {
         CopyBuffer::new(queue, src_pffset, dst_offset, len, self, dst, wait)
     }
 
     #[inline(always)]
-    pub unsafe fn read<'a> (&self, queue: &CommandQueue, blocking: bool, offset: usize, len: usize, wait: impl IntoIterator<Item = &'a BaseEvent>) -> Result<Swap<Vec<T>, ReadBuffer<'static>>, ErrorCL> where T: 'static {
+    pub unsafe fn read (&self, queue: &CommandQueue, blocking: bool, offset: usize, len: usize, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Vec<T>, ReadBuffer<'static>>, ErrorCL> where T: 'static {
         let mut dst = Vec::with_capacity(len);
         dst.set_len(len);
 
@@ -155,18 +151,18 @@ impl<T: Copy + Unpin> UnsafeBuffer<T> {
     }
 
     #[inline(always)]
-    pub unsafe fn read_into<'a, 'b> (&self, queue: &CommandQueue, blocking: bool, offset: usize, dst: &'a mut [T], wait: impl IntoIterator<Item = &'b BaseEvent>) -> Result<ReadBuffer<'a>, ErrorCL> {
+    pub unsafe fn read_into<'a> (&self, queue: &CommandQueue, blocking: bool, offset: usize, dst: &'a mut [T], wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<ReadBuffer<'a>, ErrorCL> {
         ReadBuffer::new(queue, blocking, offset, self, dst, wait)
     }
 
     #[inline(always)]
-    pub unsafe fn read_into_ptr<'b> (&self, queue: &CommandQueue, blocking: bool, offset: usize, dst: *mut T, len: usize, wait: impl IntoIterator<Item = &'b BaseEvent>) -> Result<ReadBuffer<'static>, ErrorCL> where T: 'static {
+    pub unsafe fn read_into_ptr (&self, queue: &CommandQueue, blocking: bool, offset: usize, dst: *mut T, len: usize, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<ReadBuffer<'static>, ErrorCL> where T: 'static {
         let dst = core::slice::from_raw_parts_mut(dst, len);
         self.read_into(queue, blocking, offset, dst, wait)
     }
 
     #[inline(always)]
-    pub unsafe fn write<'a, 'b> (&mut self, queue: &CommandQueue, blocking: bool, offset: usize, src: &'a [T], wait: impl IntoIterator<Item = &'b BaseEvent>) -> Result<WriteBuffer<'a>, ErrorCL> where T: 'a {
+    pub unsafe fn write<'a> (&mut self, queue: &CommandQueue, blocking: bool, offset: usize, src: &'a [T], wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<WriteBuffer<'a>, ErrorCL> where T: 'a {
         WriteBuffer::new(queue, blocking, offset, src, self, wait)
     }
 

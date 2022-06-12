@@ -56,6 +56,11 @@ impl BaseEvent {
             Err(ErrorCL::from(err))
         }
     }
+
+    #[inline(always)]
+    pub fn empty () -> [Self;0] {
+        []
+    }
 }
 
 impl Event for BaseEvent {

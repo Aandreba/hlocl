@@ -9,7 +9,6 @@ use half::f16;
 pub trait MathCL: 'static + Copy + Unpin {
     const NAME : &'static str;
     const FLOAT : bool;
-    const SIGNED : bool;
 
     #[cfg(feature = "def")]
     fn default_vec_manager () -> &'static VectorManager<Self>;
@@ -28,7 +27,6 @@ macro_rules! impl_math {
             impl MathCL for $ty {
                 const NAME : &'static str = $name;
                 const FLOAT : bool = float!($ty);
-                const SIGNED : bool = <$ty>::MIN != (0u8 as $ty);
 
                 #[cfg(feature = "def")]
                 #[inline(always)]
