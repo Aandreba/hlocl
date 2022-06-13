@@ -1,18 +1,18 @@
 use core::{pin::Pin, marker::PhantomData};
 use alloc::{vec::Vec, format};
 use cl_sys::{cl_event, clEnqueueWriteBuffer, clEnqueueCopyBuffer, clEnqueueReadBuffer};
-use crate::{prelude::{Result, Error, CommandQueue}, buffer::{UnsafeBuffer}};
+use crate::{prelude::{Result, Error, CommandQueue}, buffer::{MemBuffer}};
 use super::{BaseEvent, Event};
 
 /// OpenCL event that reads from one buffer to another 
-#[derive(Clone)]
-pub struct CopyBuffer<T: Copy + Unpin> {
+#[repr(transparent)]
+pub struct CopyBuffer<'a, 'b> {
     inner: BaseEvent,
-    dst: UnsafeBuffer<T>
+    phtm: PhantomData<(&'a (), &'b ())>
 }
 
-impl<T: Copy + Unpin> CopyBuffer<T> {
-    pub unsafe fn new (queue: &CommandQueue, src_offset: usize, dst_offset: usize, len: usize, src: &UnsafeBuffer<T>, dst: UnsafeBuffer<T>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self> {
+impl<'a, 'b> CopyBuffer<'a, 'b> {
+    pub fn new<T: 'static + Copy + Unpin> (queue: &CommandQueue, src_offset: usize, dst_offset: usize, len: usize, src: &'a MemBuffer<T>, dst: &'b mut MemBuffer<T>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self> {
         let wait = wait.into_iter().map(|x| x.as_ref().0).collect::<Vec<_>>();
         let wait_len = u32::try_from(wait.len()).unwrap();
         let wait = match wait_len {
@@ -21,11 +21,11 @@ impl<T: Copy + Unpin> CopyBuffer<T> {
         };
 
         let mut event : cl_event = core::ptr::null_mut();
-        let err = clEnqueueCopyBuffer(queue.0, src.0, dst.0, src_offset, dst_offset, len, wait_len, wait, &mut event);
+        let err = unsafe { clEnqueueCopyBuffer(queue.0, src.0, dst.0, src_offset, dst_offset, len, wait_len, wait, &mut event) };
 
         if err == 0 {
             let inner = BaseEvent::new(event)?;
-            return Ok(Self { inner, dst });
+            return Ok(Self { inner, phtm: PhantomData });
         }
 
         cfg_if::cfg_if! {
@@ -52,31 +52,27 @@ impl<T: Copy + Unpin> CopyBuffer<T> {
     }
 }
 
-impl<T: Copy + Unpin> Event for CopyBuffer<T> {
-    type Result = UnsafeBuffer<T>;
+impl Event for CopyBuffer<'_, '_> {
+    type Result = ();
 
     #[inline(always)]
     fn wait (self) -> Result<Self::Result> {
         self.inner.wait()?;
-        Ok(self.dst)
+        Ok(())
     }
 }
 
 #[cfg(feature = "async")]
-impl<T: Copy + Unpin> futures::Future for CopyBuffer<T> {
-    type Output = Result<UnsafeBuffer<T>>;
+impl futures::Future for CopyBuffer<'_, '_> {
+    type Output = Result<()>;
 
     #[inline(always)]
     fn poll(mut self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> core::task::Poll<Self::Output> {
-        if let core::task::Poll::Ready(_) = core::pin::Pin::new(&mut self.inner).poll(cx)? {
-            return core::task::Poll::Ready(Ok(self.dst.clone()))
-        }
-
-        core::task::Poll::Pending
+        core::pin::Pin::new(&mut self.inner).poll(cx)
     }
 }
 
-impl<T: Copy + Unpin> AsRef<BaseEvent> for CopyBuffer<T> {
+impl AsRef<BaseEvent> for CopyBuffer<'_, '_> {
     #[inline(always)]
     fn as_ref(&self) -> &BaseEvent {
         &self.inner
@@ -84,14 +80,14 @@ impl<T: Copy + Unpin> AsRef<BaseEvent> for CopyBuffer<T> {
 }
 
 /// Event that writes from host memory to an OpenCL buffer
-#[derive(Clone)]
-pub struct WriteBuffer<'a> {
+#[repr(transparent)]
+pub struct WriteBuffer<'a, 'b> {
     inner: BaseEvent,
-    phtm: PhantomData<&'a ()>
+    phtm: PhantomData<(&'a (), &'b ())>
 }
 
-impl<'a> WriteBuffer<'a> {
-    pub unsafe fn new<T: Copy + Unpin> (queue: &CommandQueue, blocking: bool, offset: usize, src: &'a [T], dst: &mut UnsafeBuffer<T>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self> {
+impl<'a, 'b> WriteBuffer<'a, 'b> {
+    pub fn new<T: Copy + Unpin> (queue: &CommandQueue, blocking: bool, offset: usize, src: &'a [T], dst: &'b mut MemBuffer<T>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self> {
         let src = Pin::new(src);
 
         let wait = wait.into_iter().map(|x| x.as_ref().0).collect::<Vec<_>>();
@@ -102,7 +98,7 @@ impl<'a> WriteBuffer<'a> {
         };
 
         let mut event : cl_event = core::ptr::null_mut();
-        let err = {
+        let err = unsafe {
             let offset = offset.checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
             let len = src.len().checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
             clEnqueueWriteBuffer(queue.0, dst.0, cl_sys::cl_bool::from(blocking), offset, len, src.as_ptr().cast(), wait_len, wait, &mut event)
@@ -137,7 +133,7 @@ impl<'a> WriteBuffer<'a> {
     }
 }
 
-impl Event for WriteBuffer<'_> {
+impl Event for WriteBuffer<'_, '_> {
     type Result = ();
 
     #[inline(always)]
@@ -147,7 +143,7 @@ impl Event for WriteBuffer<'_> {
 }
 
 #[cfg(feature = "async")]
-impl futures::Future for WriteBuffer<'_> {
+impl futures::Future for WriteBuffer<'_, '_> {
     type Output = Result<()>;
 
     #[inline(always)]
@@ -156,7 +152,7 @@ impl futures::Future for WriteBuffer<'_> {
     }
 }
 
-impl AsRef<BaseEvent> for WriteBuffer<'_> {
+impl AsRef<BaseEvent> for WriteBuffer<'_, '_> {
     #[inline(always)]
     fn as_ref(&self) -> &BaseEvent {
         &self.inner
@@ -164,13 +160,13 @@ impl AsRef<BaseEvent> for WriteBuffer<'_> {
 }
 
 /// Event that reads from an OpenCL buffer to host memory
-pub struct ReadBuffer<'a> {
+pub struct ReadBuffer<'a, 'b> {
     inner: BaseEvent,
-    phtm: PhantomData<&'a ()>
+    phtm: PhantomData<(&'a (), &'b ())>
 }
 
-impl<'a> ReadBuffer<'a> {
-    pub unsafe fn new<T: Copy + Unpin> (queue: &CommandQueue, blocking: bool, offset: usize, src: &UnsafeBuffer<T>, dst: &'a mut [T], wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self> {
+impl<'a, 'b> ReadBuffer<'a, 'b> {
+    pub fn new<T: Copy + Unpin> (queue: &CommandQueue, blocking: bool, offset: usize, src: &'a MemBuffer<T>, dst: &'b mut [T], wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self> {
         let wait = wait.into_iter().map(|x| x.as_ref().0).collect::<Vec<_>>();
         let wait_len = u32::try_from(wait.len()).unwrap();
         let wait = match wait_len {
@@ -179,7 +175,7 @@ impl<'a> ReadBuffer<'a> {
         };
 
         let mut event : cl_event = core::ptr::null_mut();
-        let err = {
+        let err = unsafe {
             let offset = offset.checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
             let len = dst.len().checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
             clEnqueueReadBuffer(queue.0, src.0, cl_sys::cl_bool::from(blocking), offset, len, dst.as_mut_ptr().cast(), wait_len, wait, &mut event)
@@ -199,7 +195,7 @@ impl<'a> ReadBuffer<'a> {
                     Error::InvalidCommandQueue => report.attach_printable(format!("'{:?}' is not a valid command-queue", queue.0)),
                     Error::InvalidContext => report.attach_printable("the context associated with the command queue and buffer are not the same or the context associated with command queue and events in the event wait list are not the same"),
                     Error::InvalidMemObject => report.attach_printable(format!("'{:?}' is not a valid buffer", src.0)),
-                    Error::InvalidValue => report.attach_printable("the region being written is out of bounds or ptr is a NULL value"),
+                    Error::InvalidValue => report.attach_printable("the region being read is out of bounds or ptr is a NULL value"),
                     Error::InvalidEventWaitList => report.attach_printable("event objects in the event wait list are not valid events"),
                     Error::MemObjectAllocationFailure => report.attach_printable("there is a failure to allocate memory for data store associated with buffer"),
                     Error::OutOfResources => report.attach_printable("there is a failure to allocate resources required by the OpenCL implementation on the device"),
@@ -214,7 +210,7 @@ impl<'a> ReadBuffer<'a> {
     }
 }
 
-impl<'a> Event for ReadBuffer<'a> {
+impl Event for ReadBuffer<'_, '_> {
     type Result = ();
 
     #[inline(always)]
@@ -224,7 +220,7 @@ impl<'a> Event for ReadBuffer<'a> {
 }
 
 #[cfg(feature = "async")]
-impl<'a> futures::Future for ReadBuffer<'a> {
+impl futures::Future for ReadBuffer<'_, '_> {
     type Output = Result<()>;
 
     #[inline(always)]
@@ -233,7 +229,7 @@ impl<'a> futures::Future for ReadBuffer<'a> {
     }
 }
 
-impl AsRef<BaseEvent> for ReadBuffer<'_> {
+impl AsRef<BaseEvent> for ReadBuffer<'_, '_> {
     #[inline(always)]
     fn as_ref(&self) -> &BaseEvent {
         &self.inner

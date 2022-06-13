@@ -18,6 +18,8 @@ cfg_if::cfg_if! {
     }
 }
 
+pub const EMPTY : [BaseEvent;0] = [];
+
 impl BaseEvent {
     #[cfg(feature = "async")]
     pub fn new (id: cl_event) -> Result<Self> {
@@ -58,13 +60,8 @@ impl BaseEvent {
 
     #[cfg(not(feature = "async"))]
     #[inline(always)]
-    pub fn new (id: cl_event) -> Result<Self, Error> {
+    pub fn new (id: cl_event) -> Result<Self> {
         Ok(Self(id))
-    }
-
-    #[inline(always)]
-    pub fn empty () -> [Self;0] {
-        []
     }
 
     #[inline]

@@ -1,7 +1,8 @@
-use opencl::{vec::{Vector}};
+use opencl::{prelude::*, buffer::MemFlags};
 
 #[test]
-fn vec () {
-    let alpha = Vector::<i32>::new(&[1, 2, 3, 4, 5]).unwrap();
-    println!("sum {alpha:?} = {:?}", alpha.sum().unwrap());
+fn vec () -> Result<()> {
+    let input = MemBuffer::new(&[1.0, 2.0, 3f32, 4.0, 5.0], MemFlags::READ_WRITE)?;
+    
+    Ok(())
 }

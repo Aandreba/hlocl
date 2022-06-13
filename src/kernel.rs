@@ -1,23 +1,26 @@
+#[cfg(test)]
+extern crate std;
+
 use core::{mem::MaybeUninit, ptr::addr_of};
 use alloc::{string::{String}, vec::Vec, format};
-use cl_sys::{cl_kernel, clRetainKernel, clReleaseKernel, clCreateKernel, clGetKernelInfo, cl_kernel_info, CL_KERNEL_FUNCTION_NAME, CL_KERNEL_NUM_ARGS, CL_KERNEL_REFERENCE_COUNT, CL_KERNEL_CONTEXT, CL_KERNEL_PROGRAM, clSetKernelArg, cl_kernel_arg_info, CL_KERNEL_ARG_ADDRESS_GLOBAL, CL_KERNEL_ARG_ADDRESS_LOCAL, CL_KERNEL_ARG_ADDRESS_CONSTANT, CL_KERNEL_ARG_ADDRESS_PRIVATE, CL_KERNEL_ARG_ADDRESS_QUALIFIER, CL_KERNEL_ARG_ACCESS_READ_ONLY, CL_KERNEL_ARG_ACCESS_WRITE_ONLY, CL_KERNEL_ARG_ACCESS_READ_WRITE, CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_ACCESS_QUALIFIER, clGetKernelArgInfo, CL_KERNEL_ARG_NAME, CL_KERNEL_ARG_TYPE_NAME, CL_KERNEL_ARG_TYPE_CONST, CL_KERNEL_ARG_TYPE_RESTRICT, CL_KERNEL_ARG_TYPE_VOLATILE, CL_KERNEL_ARG_TYPE_QUALIFIER, clEnqueueNDRangeKernel, cl_mem};
-use crate::{prelude::{Error, Program, Context, CommandQueue, BaseEvent}, error::Result, buffer::UnsafeBuffer};
+use cl_sys::{cl_kernel, clReleaseKernel, clCreateKernel, clGetKernelInfo, cl_kernel_info, CL_KERNEL_FUNCTION_NAME, CL_KERNEL_NUM_ARGS, CL_KERNEL_REFERENCE_COUNT, CL_KERNEL_CONTEXT, CL_KERNEL_PROGRAM, clSetKernelArg, cl_kernel_arg_info, CL_KERNEL_ARG_ADDRESS_GLOBAL, CL_KERNEL_ARG_ADDRESS_LOCAL, CL_KERNEL_ARG_ADDRESS_CONSTANT, CL_KERNEL_ARG_ADDRESS_PRIVATE, CL_KERNEL_ARG_ADDRESS_QUALIFIER, CL_KERNEL_ARG_ACCESS_READ_ONLY, CL_KERNEL_ARG_ACCESS_WRITE_ONLY, CL_KERNEL_ARG_ACCESS_READ_WRITE, CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_ACCESS_QUALIFIER, clGetKernelArgInfo, CL_KERNEL_ARG_NAME, CL_KERNEL_ARG_TYPE_NAME, CL_KERNEL_ARG_TYPE_CONST, CL_KERNEL_ARG_TYPE_RESTRICT, CL_KERNEL_ARG_TYPE_VOLATILE, CL_KERNEL_ARG_TYPE_QUALIFIER, clEnqueueNDRangeKernel, cl_mem};
+use crate::{prelude::{Error, Program, Context, CommandQueue, BaseEvent}, error::Result, buffer::MemBuffer};
 
 #[derive(PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct Kernel (pub(crate) cl_kernel);
 
 impl Kernel {
+    /// Creates a new kernel from a program and a name.
+    /// # Safety
+    /// It's up to the caller to ensure this is the only time the kernel is initialized
     #[inline]
-    pub fn new (program: &Program, name: &str) -> Result<Self> {
+    pub unsafe fn new_unchecked (program: &Program, name: &str) -> Result<Self> {
         let mut name = name.as_bytes().to_vec();
         name.push(0);
         
         let mut err = 0;
-        let id = unsafe {
-            clCreateKernel(program.0, name.as_ptr().cast(), &mut err)
-        };
-
+        let id = clCreateKernel(program.0, name.as_ptr().cast(), &mut err);
         if err == 0 { return Ok(Self(id)); }
 
         cfg_if::cfg_if! {
@@ -49,7 +52,7 @@ impl Kernel {
     }
 
     #[inline(always)]
-    pub fn set_mem_arg<T: Copy + Unpin> (&mut self, idx: u32, v: &UnsafeBuffer<T>) -> Result<()> {
+    pub fn set_mem_arg<T: Copy + Unpin> (&mut self, idx: u32, v: &MemBuffer<T>) -> Result<()> {
         let err = unsafe { clSetKernelArg(self.0, idx, core::mem::size_of::<cl_mem>(), addr_of!(v.0).cast()) };
         self.parse_error_set_arg(err, idx, core::mem::size_of::<cl_mem>())
     }
@@ -121,7 +124,13 @@ impl Kernel {
         self.get_arg_info_string(CL_KERNEL_ARG_NAME, idx)
     }
 
-    pub fn enqueue<const N: usize> (&mut self, queue: &CommandQueue, global_dims: &[usize; N], local_dims: Option<&[usize; N]>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<BaseEvent> {        
+    #[cfg(feature = "def")]
+    #[inline(always)]
+    pub fn enqueue<const N: usize> (&mut self, global_dims: &[usize; N], local_dims: Option<&[usize; N]>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<BaseEvent> {
+        self.enqueue_with_queue(CommandQueue::default(), global_dims, local_dims, wait)
+    }
+
+    pub fn enqueue_with_queue<const N: usize> (&mut self, queue: &CommandQueue, global_dims: &[usize; N], local_dims: Option<&[usize; N]>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<BaseEvent> {        
         let dim_len = u32::try_from(N).expect("Too many work dimensions");
         let local_dims = match local_dims {
             Some(x) => x.as_ptr(),
@@ -302,7 +311,7 @@ impl Kernel {
     }
 }
 
-impl Clone for Kernel {
+/*impl Clone for Kernel {
     #[inline(always)]
     fn clone(&self) -> Self {
         unsafe {
@@ -311,7 +320,7 @@ impl Clone for Kernel {
         
         Self(self.0)
     }
-}
+}*/
 
 impl Drop for Kernel {
     #[inline(always)]

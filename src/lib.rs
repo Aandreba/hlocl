@@ -275,7 +275,7 @@ pub mod prelude {
     pub use crate::queue::CommandQueue;
     pub use crate::error::{Result, Error};
     pub use crate::program::Program;
-    pub use crate::event::{Event, BaseEvent};
+    pub use crate::event::{Event, BaseEvent, EMPTY};
     pub use crate::buffer::{MemBuffer};
     pub use crate::kernel::Kernel;
 }

@@ -9,8 +9,14 @@ use crate::{prelude::{Result, Error, Context, Device}};
 pub struct Program (pub(crate) cl_program);
 
 impl Program {
+    #[cfg(feature = "def")]
     #[inline(always)]
-    pub fn from_source (ctx: &Context, source: &str) -> Result<Self> {
+    pub fn from_source (source: &str) -> Result<Self> {
+        Self::from_source_with_context(Context::default(), source)
+    }
+
+    #[inline(always)]
+    pub fn from_source_with_context (ctx: &Context, source: &str) -> Result<Self> {
         let len = [source.len()].as_ptr();
         let strings = [source.as_ptr().cast()].as_ptr();
 
