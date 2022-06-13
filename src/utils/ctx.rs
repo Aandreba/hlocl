@@ -1,6 +1,6 @@
 use core::{sync::atomic::{AtomicUsize, Ordering}, ops::{Deref, DerefMut}};
 use alloc::vec::Vec;
-use crate::{prelude::{Context, Device, ErrorCL, CommandQueue}, context::ContextProps, queue::CommandQueueProps};
+use crate::{prelude::{Context, Device, Result, CommandQueue}, context::ContextProps, queue::CommandQueueProps};
 
 #[cfg(feature = "def")]
 lazy_static! {
@@ -14,9 +14,14 @@ pub struct ContextManager {
 }
 
 impl ContextManager {
-    pub fn new (devices: &[Device], ctx_props: Option<ContextProps>, queue_props: Option<CommandQueueProps>) -> Result<Self, ErrorCL> {
+    pub fn new (devices: &[Device], ctx_props: Option<ContextProps>, queue_props: Option<CommandQueueProps>) -> Result<Self> {
         let ctx = Context::new(ctx_props, &devices)?;
-        let queues = devices.iter().map(|d| CommandQueue::new(&ctx, d, queue_props)).collect::<Result<Vec<_>, _>>()?;
+        let mut queues = Vec::with_capacity(devices.len());
+
+        for device in devices {
+            let queue = CommandQueue::new(&ctx, device, queue_props)?;
+            queues.push(queue);
+        }
         
         Ok(Self {
             ctx,

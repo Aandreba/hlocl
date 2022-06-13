@@ -1,7 +1,7 @@
 use core::{pin::Pin, marker::PhantomData};
-use alloc::{vec::Vec};
+use alloc::{vec::Vec, format};
 use cl_sys::{cl_event, clEnqueueWriteBuffer, clEnqueueCopyBuffer, clEnqueueReadBuffer};
-use crate::{prelude::{ErrorCL, CommandQueue}, buffer::{UnsafeBuffer}};
+use crate::{prelude::{Result, Error, CommandQueue}, buffer::{UnsafeBuffer}};
 use super::{BaseEvent, Event};
 
 /// OpenCL event that reads from one buffer to another 
@@ -12,7 +12,7 @@ pub struct CopyBuffer<T: Copy + Unpin> {
 }
 
 impl<T: Copy + Unpin> CopyBuffer<T> {
-    pub unsafe fn new (queue: &CommandQueue, src_offset: usize, dst_offset: usize, len: usize, src: &UnsafeBuffer<T>, dst: UnsafeBuffer<T>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self, ErrorCL> {
+    pub unsafe fn new (queue: &CommandQueue, src_offset: usize, dst_offset: usize, len: usize, src: &UnsafeBuffer<T>, dst: UnsafeBuffer<T>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self> {
         let wait = wait.into_iter().map(|x| x.as_ref().0).collect::<Vec<_>>();
         let wait_len = u32::try_from(wait.len()).unwrap();
         let wait = match wait_len {
@@ -28,7 +28,27 @@ impl<T: Copy + Unpin> CopyBuffer<T> {
             return Ok(Self { inner, dst });
         }
 
-        Err(ErrorCL::from(err))
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "error-stack")] {
+                let err = Error::from(err);
+                let report = error_stack::Report::new(err);
+
+                let report = match err {
+                    Error::InvalidCommandQueue => report.attach_printable(format!("'{:?}' is not a valid command-queue", queue.0)),
+                    Error::InvalidContext => report.attach_printable("the context associated with the command queue and buffer are not the same or the context associated with command queue and events in the event wait list are not the same"),
+                    Error::InvalidMemObject => report.attach_printable(format!("'{:?}' and/or '{:?}' are not a valid buffer", src.0, dst.0)),
+                    Error::InvalidValue => report.attach_printable("the region being written is out of bounds or ptr is a NULL value"),
+                    Error::InvalidEventWaitList => report.attach_printable("event objects in the event wait list are not valid events"),
+                    Error::MemObjectAllocationFailure => report.attach_printable("there is a failure to allocate memory for data store associated with buffer"),
+                    Error::OutOfHostMemory => report.attach_printable("there is a failure to allocate resources required by the OpenCL implementation on the host"),
+                    _ => report
+                };
+
+                Err(report)
+            } else {
+                Err(Error::from(err))
+            }
+        }
     }
 }
 
@@ -36,7 +56,7 @@ impl<T: Copy + Unpin> Event for CopyBuffer<T> {
     type Result = UnsafeBuffer<T>;
 
     #[inline(always)]
-    fn wait (self) -> Result<Self::Result, ErrorCL> {
+    fn wait (self) -> Result<Self::Result> {
         self.inner.wait()?;
         Ok(self.dst)
     }
@@ -44,7 +64,7 @@ impl<T: Copy + Unpin> Event for CopyBuffer<T> {
 
 #[cfg(feature = "async")]
 impl<T: Copy + Unpin> futures::Future for CopyBuffer<T> {
-    type Output = Result<UnsafeBuffer<T>, ErrorCL>;
+    type Output = Result<UnsafeBuffer<T>>;
 
     #[inline(always)]
     fn poll(mut self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> core::task::Poll<Self::Output> {
@@ -71,7 +91,7 @@ pub struct WriteBuffer<'a> {
 }
 
 impl<'a> WriteBuffer<'a> {
-    pub unsafe fn new<T: Copy + Unpin> (queue: &CommandQueue, blocking: bool, offset: usize, src: &'a [T], dst: &mut UnsafeBuffer<T>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self, ErrorCL> {
+    pub unsafe fn new<T: Copy + Unpin> (queue: &CommandQueue, blocking: bool, offset: usize, src: &'a [T], dst: &mut UnsafeBuffer<T>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self> {
         let src = Pin::new(src);
 
         let wait = wait.into_iter().map(|x| x.as_ref().0).collect::<Vec<_>>();
@@ -93,7 +113,27 @@ impl<'a> WriteBuffer<'a> {
             return Ok(Self { inner, phtm: PhantomData });
         }
 
-        Err(ErrorCL::from(err))
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "error-stack")] {
+                let err = Error::from(err);
+                let report = error_stack::Report::new(err);
+
+                let report = match err {
+                    Error::InvalidCommandQueue => report.attach_printable(format!("'{:?}' is not a valid command-queue", queue.0)),
+                    Error::InvalidContext => report.attach_printable("the context associated with the command queue and buffer are not the same or the context associated with command queue and events in the event wait list are not the same"),
+                    Error::InvalidMemObject => report.attach_printable(format!("'{:?}' is not a valid buffer", dst.0)),
+                    Error::InvalidValue => report.attach_printable("the region being written is out of bounds or ptr is a NULL value"),
+                    Error::InvalidEventWaitList => report.attach_printable("event objects in the event wait list are not valid events"),
+                    Error::MemObjectAllocationFailure => report.attach_printable("there is a failure to allocate memory for data store associated with buffer"),
+                    Error::OutOfResources => report.attach_printable("there is a failure to allocate resources required by the OpenCL implementation on the device"),
+                    _ => report
+                };
+
+                Err(report)
+            } else {
+                Err(Error::from(err))
+            }
+        }
     }
 }
 
@@ -101,14 +141,14 @@ impl Event for WriteBuffer<'_> {
     type Result = ();
 
     #[inline(always)]
-    fn wait (self) -> Result<Self::Result, ErrorCL> {
+    fn wait (self) -> Result<Self::Result> {
         self.inner.wait()
     }
 }
 
 #[cfg(feature = "async")]
 impl futures::Future for WriteBuffer<'_> {
-    type Output = Result<(), ErrorCL>;
+    type Output = Result<()>;
 
     #[inline(always)]
     fn poll(mut self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> core::task::Poll<Self::Output> {
@@ -130,7 +170,7 @@ pub struct ReadBuffer<'a> {
 }
 
 impl<'a> ReadBuffer<'a> {
-    pub unsafe fn new<T: Copy + Unpin> (queue: &CommandQueue, blocking: bool, offset: usize, src: &UnsafeBuffer<T>, dst: &'a mut [T], wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self, ErrorCL> {
+    pub unsafe fn new<T: Copy + Unpin> (queue: &CommandQueue, blocking: bool, offset: usize, src: &UnsafeBuffer<T>, dst: &'a mut [T], wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self> {
         let wait = wait.into_iter().map(|x| x.as_ref().0).collect::<Vec<_>>();
         let wait_len = u32::try_from(wait.len()).unwrap();
         let wait = match wait_len {
@@ -150,7 +190,27 @@ impl<'a> ReadBuffer<'a> {
             return Ok(Self { inner, phtm: PhantomData });
         }
 
-        Err(ErrorCL::from(err))
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "error-stack")] {
+                let err = Error::from(err);
+                let report = error_stack::Report::new(err);
+
+                let report = match err {
+                    Error::InvalidCommandQueue => report.attach_printable(format!("'{:?}' is not a valid command-queue", queue.0)),
+                    Error::InvalidContext => report.attach_printable("the context associated with the command queue and buffer are not the same or the context associated with command queue and events in the event wait list are not the same"),
+                    Error::InvalidMemObject => report.attach_printable(format!("'{:?}' is not a valid buffer", src.0)),
+                    Error::InvalidValue => report.attach_printable("the region being written is out of bounds or ptr is a NULL value"),
+                    Error::InvalidEventWaitList => report.attach_printable("event objects in the event wait list are not valid events"),
+                    Error::MemObjectAllocationFailure => report.attach_printable("there is a failure to allocate memory for data store associated with buffer"),
+                    Error::OutOfResources => report.attach_printable("there is a failure to allocate resources required by the OpenCL implementation on the device"),
+                    _ => report
+                };
+
+                Err(report)
+            } else {
+                Err(Error::from(err))
+            }
+        }
     }
 }
 
@@ -158,14 +218,14 @@ impl<'a> Event for ReadBuffer<'a> {
     type Result = ();
 
     #[inline(always)]
-    fn wait (self) -> Result<Self::Result, ErrorCL> {
+    fn wait (self) -> Result<Self::Result> {
         self.inner.wait()
     }
 }
 
 #[cfg(feature = "async")]
 impl<'a> futures::Future for ReadBuffer<'a> {
-    type Output = Result<(), ErrorCL>;
+    type Output = Result<()>;
 
     #[inline(always)]
     fn poll(mut self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> core::task::Poll<Self::Output> {

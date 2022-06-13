@@ -2,7 +2,7 @@ use core::mem::MaybeUninit;
 use alloc::format;
 use alloc::vec::{Vec};
 use cl_sys::{cl_context, cl_context_properties, CL_CONTEXT_PLATFORM, CL_CONTEXT_INTEROP_USER_SYNC, clCreateContext, clReleaseContext, clRetainContext, cl_context_info, clGetContextInfo, CL_CONTEXT_REFERENCE_COUNT, CL_CONTEXT_NUM_DEVICES, CL_CONTEXT_DEVICES};
-use crate::error::ErrorCL;
+use crate::error::Error;
 use crate::prelude::{Platform, Device, Result};
 
 /// OpenCL context
@@ -30,21 +30,21 @@ impl Context {
 
         cfg_if::cfg_if! {
             if #[cfg(feature = "error-stack")] {
-                let err = ErrorCL::from(err);
+                let err = Error::from(err);
                 let report = error_stack::Report::new(err);
 
                 let report = match err {
-                    ErrorCL::InvalidPlatform => report.attach_printable("props is NULL and no platform could be selected or platform value specified in props is not a valid platform"),
-                    ErrorCL::InvalidValue => report.attach_printable("context property name in properties is not a supported property name, devices is NULL or num_devices is equal to zero"),
-                    ErrorCL::InvalidDevice => report.attach_printable("devices contains an invalid device or they are not associated with the specified platform"),
-                    ErrorCL::DeviceNotAvailable => report.attach_printable("a device in devices is currently not available"),
-                    ErrorCL::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
+                    Error::InvalidPlatform => report.attach_printable("props is NULL and no platform could be selected or platform value specified in props is not a valid platform"),
+                    Error::InvalidValue => report.attach_printable("context property name in properties is not a supported property name, devices is NULL or num_devices is equal to zero"),
+                    Error::InvalidDevice => report.attach_printable("devices contains an invalid device or they are not associated with the specified platform"),
+                    Error::DeviceNotAvailable => report.attach_printable("a device in devices is currently not available"),
+                    Error::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
                     _ => report
                 };
 
                 Err(report)
             } else {
-                Err(ErrorCL::from(err))
+                Err(Error::from(err))
             }
         }
     }
@@ -106,20 +106,20 @@ impl Context {
 
         cfg_if::cfg_if! {
             if #[cfg(feature = "error-stack")] {
-                let err = ErrorCL::from(err);
+                let err = Error::from(err);
                 let report = error_stack::Report::new(err);
 
                 let report = match err {
-                    ErrorCL::InvalidContext => report.attach_printable(format!("'{:?}' is not a valid context", self.0)),
-                    ErrorCL::InvalidValue => report.attach_printable(format!("'{ty}' is not one of the supported values or size in bytes specified by {size} is < size of return type as specified in the table above and '{ty}' is not a NULL value")),
-                    ErrorCL::OutOfResources => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the device"),
-                    ErrorCL::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
+                    Error::InvalidContext => report.attach_printable(format!("'{:?}' is not a valid context", self.0)),
+                    Error::InvalidValue => report.attach_printable(format!("'{ty}' is not one of the supported values or size in bytes specified by {size} is < size of return type as specified in the table above and '{ty}' is not a NULL value")),
+                    Error::OutOfResources => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the device"),
+                    Error::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
                     _ => report
                 };
 
                 Err(report)
             } else {
-                Err(ErrorCL::from(err))
+                Err(Error::from(err))
             }
         }
     }

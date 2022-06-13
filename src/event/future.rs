@@ -1,6 +1,6 @@
 use core::{task::Poll, pin::Pin};
 use futures::Future;
-use crate::prelude::{Context, ErrorCL};
+use crate::prelude::{Context, Result};
 use super::{UserEvent, BaseEvent};
 
 pub struct FutureEvent<F> {
@@ -11,12 +11,12 @@ pub struct FutureEvent<F> {
 impl<F: Future + Unpin> FutureEvent<F> {
     #[cfg(feature = "def")]
     #[inline(always)]
-    pub fn new (fut: F) -> Result<Self, ErrorCL> {
+    pub fn new (fut: F) -> Result<Self> {
         Self::with_context(Context::default(), fut)
     }
 
     #[inline(always)]
-    pub fn with_context (ctx: &Context, fut: F) -> Result<Self, ErrorCL> {
+    pub fn with_context (ctx: &Context, fut: F) -> Result<Self> {
         let inner = UserEvent::with_context(ctx)?;
         Ok(Self {
             fut,
@@ -33,12 +33,12 @@ impl<F: Future + Unpin> AsRef<BaseEvent> for FutureEvent<F> {
 }
 
 impl<F: Future + Unpin> Future for FutureEvent<F> {
-    type Output = Result<F::Output, ErrorCL>;
+    type Output = Result<F::Output>;
 
     #[inline(always)]
     fn poll(mut self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> core::task::Poll<Self::Output> {
         if let Poll::Ready(x) = Pin::new(&mut self.fut).poll(cx) {
-            self.inner.set_status(Ok(()))?;
+            self.inner.set_status(None)?;
             return Poll::Ready(Ok(x));
         }
 

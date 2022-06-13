@@ -1,4 +1,5 @@
 use crate::{event::{Event, BaseEvent}};
+use crate::prelude::Result;
 
 pub struct Then<E: Event, F: Unpin + FnOnce(&mut E::Result)> {
     pub(crate) inner: E,
@@ -24,7 +25,7 @@ impl<E: Event, F: Unpin + FnOnce(&mut E::Result)> Event for Then<E, F> {
     type Result = E::Result;
 
     #[inline(always)]
-    fn wait (self) -> Result<Self::Result, crate::prelude::ErrorCL> {
+    fn wait (self) -> Result<Self::Result> {
         let mut v = self.inner.wait()?;
         #[cfg(feature = "async")]
         self.f.unwrap()(&mut v);

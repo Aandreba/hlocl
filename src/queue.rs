@@ -1,6 +1,6 @@
 use core::mem::MaybeUninit;
 use cl_sys::{cl_command_queue_properties, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, CL_QUEUE_PROFILING_ENABLE, cl_command_queue, clRetainCommandQueue, clReleaseCommandQueue, clCreateCommandQueue, cl_command_queue_info, clGetCommandQueueInfo, CL_QUEUE_CONTEXT, CL_QUEUE_DEVICE, CL_QUEUE_PROPERTIES};
-use crate::{prelude::{Context, ErrorCL, Device}, utils::ContextManager};
+use crate::{prelude::{Context, Error, Device}, utils::ContextManager};
 
 /// OpenCL command queue
 #[derive(PartialEq, Eq, Hash)]
@@ -9,7 +9,7 @@ pub struct CommandQueue (pub(crate) cl_command_queue);
 
 impl CommandQueue {
     #[inline]
-    pub fn new (ctx: &Context, device: &Device, props: Option<CommandQueueProps>) -> Result<Self, ErrorCL> {
+    pub fn new (ctx: &Context, device: &Device, props: Option<CommandQueueProps>) -> Result<Self, Error> {
         let props = match props {
             Some(x) => x,
             None => CommandQueueProps::default()
@@ -24,24 +24,24 @@ impl CommandQueue {
             return Ok(Self(id));
         }
 
-        Err(ErrorCL::from(err))
+        Err(Error::from(err))
     }
 
     /// Return the context specified when the command-queue is created.
     #[inline(always)]
-    pub fn context (&self) -> Result<Context, ErrorCL> {
+    pub fn context (&self) -> Result<Context, Error> {
         self.get_info(CL_QUEUE_CONTEXT)
     }
 
     /// Return the device specified when the command-queue is created.
     #[inline(always)]
-    pub fn device (&self) -> Result<Device, ErrorCL> {
+    pub fn device (&self) -> Result<Device, Error> {
         self.get_info(CL_QUEUE_DEVICE)
     }
 
     /// Return the currently specified properties for the command-queue.
     #[inline(always)]
-    pub fn properties (&self) -> Result<CommandQueueProps, ErrorCL> {
+    pub fn properties (&self) -> Result<CommandQueueProps, Error> {
         self.get_info(CL_QUEUE_PROPERTIES)
     }
 
@@ -52,7 +52,7 @@ impl CommandQueue {
     }
 
     #[inline]
-    fn get_info<T> (&self, ty: cl_command_queue_info) -> Result<T, ErrorCL> {
+    fn get_info<T> (&self, ty: cl_command_queue_info) -> Result<T, Error> {
         let mut result = MaybeUninit::<T>::uninit();
         unsafe {
             let err = clGetCommandQueueInfo(self.0, ty, core::mem::size_of::<T>(), result.as_mut_ptr().cast(), core::ptr::null_mut());
@@ -60,7 +60,7 @@ impl CommandQueue {
                 return Ok(result.assume_init());
             }
 
-            Err(ErrorCL::from(err))
+            Err(Error::from(err))
         }
     }
 }

@@ -1,7 +1,7 @@
 use core::{mem::MaybeUninit, num::NonZeroUsize};
-use alloc::{string::{String, ToString}, vec::Vec};
+use alloc::{string::{String}, vec::Vec, format};
 use cl_sys::{cl_program, clReleaseProgram, clCreateProgramWithSource, clRetainProgram, clBuildProgram, cl_program_info, clGetProgramInfo, CL_PROGRAM_REFERENCE_COUNT, CL_PROGRAM_CONTEXT, CL_PROGRAM_NUM_DEVICES, CL_PROGRAM_DEVICES, CL_PROGRAM_SOURCE, clGetProgramBuildInfo, CL_PROGRAM_BUILD_LOG};
-use crate::{prelude::{ErrorCL, Context, Device}};
+use crate::{prelude::{Result, Error, Context, Device}};
 
 /// OpenCL program
 #[derive(PartialEq, Eq, Hash)]
@@ -10,7 +10,7 @@ pub struct Program (pub(crate) cl_program);
 
 impl Program {
     #[inline(always)]
-    pub fn from_source (ctx: &Context, source: &str) -> Result<Self, ErrorCL> {
+    pub fn from_source (ctx: &Context, source: &str) -> Result<Self> {
         let len = [source.len()].as_ptr();
         let strings = [source.as_ptr().cast()].as_ptr();
 
@@ -19,82 +19,93 @@ impl Program {
             clCreateProgramWithSource(ctx.0, 1, strings, len, &mut err)
         };
 
-        if err != 0 {
-            return Err(ErrorCL::from(err));
+        if err == 0 {
+            let this = Self(id);
+            this.build(ctx)?;
+            return Ok(this)
         }
 
-        let this = Self(id);
-        this.build(ctx)?;
-        Ok(this)
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "error-stack")] {
+                let err = Error::from(err);
+                let report = error_stack::Report::new(err);
+
+                let report = match err {
+                    Error::InvalidContext => report.attach_printable(format!("'{:?}' is not a valid context", ctx.0)),
+                    Error::InvalidValue => report.attach_printable(format!("source count is zero or any entry in strings is NULL")),
+                    _ => report
+                };
+
+                Err(report)
+            } else {
+                Err(Error::from(err))
+            }
+        }
     }
 
     /// Return the program reference count.
     #[inline(always)]
-    pub fn reference_count (&self) -> Result<u32, ErrorCL> {
+    pub fn reference_count (&self) -> Result<u32> {
         self.get_info(CL_PROGRAM_REFERENCE_COUNT)
     }
 
     /// Return the context specified when the program object is created
     #[inline(always)]
-    pub fn context (&self) -> Result<Context, ErrorCL> {
+    pub fn context (&self) -> Result<Context> {
         self.get_info(CL_PROGRAM_CONTEXT)
     }
 
     /// Return the number of devices associated with program.
     #[inline(always)]
-    pub fn device_count (&self) -> Result<u32, ErrorCL> {
+    pub fn device_count (&self) -> Result<u32> {
         self.get_info(CL_PROGRAM_NUM_DEVICES)
     }
 
     /// Return the list of devices associated with the program object. This can be the devices associated with context on which the program object has been created or can be a subset of devices that are specified when a progam object is created using clCreateProgramWithBinary.
     #[inline]
-    pub fn devices (&self) -> Result<Vec<Device>, ErrorCL> {
+    pub fn devices (&self) -> Result<Vec<Device>> {
         let count = self.device_count()?;
         let mut result = Vec::<Device>::with_capacity(count as usize);
+        let size = result.capacity().checked_mul(core::mem::size_of::<Device>()).expect("Too many devices");
 
         let err = unsafe {
-            clGetProgramInfo(self.0, CL_PROGRAM_DEVICES, result.capacity() * core::mem::size_of::<Device>(), result.as_mut_ptr().cast(), core::ptr::null_mut())
+            clGetProgramInfo(self.0, CL_PROGRAM_DEVICES, size, result.as_mut_ptr().cast(), core::ptr::null_mut())
         };
-
-        if err != 0 {
-            return Err(ErrorCL::from(err));
-        }
         
+        self.parse_error(err, CL_PROGRAM_DEVICES, size)?;
         unsafe { result.set_len(result.capacity()) }
         Ok(result)
     }
 
     /// Return the program source code
     #[inline(always)]
-    pub fn source (&self) -> Result<String, ErrorCL> {
+    pub fn source (&self) -> Result<String> {
         self.get_info_string(CL_PROGRAM_SOURCE)
     }
 
     /// Returns an array that contains the size in bytes of the program binary for each device associated with program. The size of the array is the number of devices associated with program. If a binary is not available for a device(s), a size of zero is returned.
     #[inline]
-    pub fn binary_sizes (&self) -> Result<Vec<Option<NonZeroUsize>>, ErrorCL> {
+    pub fn binary_sizes (&self) -> Result<Vec<Option<NonZeroUsize>>> {
         let count = self.device_count()?;
         let mut result = Vec::<Option<NonZeroUsize>>::with_capacity(count as usize);
+        let size = result.capacity().checked_mul(core::mem::size_of::<usize>()).expect("Too many binaries");
 
         let err = unsafe {
-            clGetProgramInfo(self.0, CL_PROGRAM_DEVICES, result.capacity() * core::mem::size_of::<usize>(), result.as_mut_ptr().cast(), core::ptr::null_mut())
+            clGetProgramInfo(self.0, CL_PROGRAM_DEVICES, size, result.as_mut_ptr().cast(), core::ptr::null_mut())
         };
 
-        if err != 0 {
-            return Err(ErrorCL::from(err));
-        }
-        
+        self.parse_error(err, CL_PROGRAM_DEVICES, size)?;
         unsafe { result.set_len(result.capacity()) }
         Ok(result)
     }
 
     #[inline]
-    pub fn binaries (&self) -> Result<Vec<Option<Vec<u8>>>, ErrorCL> {
+    pub fn binaries (&self) -> Result<Vec<Option<Vec<u8>>>> {
         todo!()
     }
 
     #[inline(always)]
-    fn build (&self, cx: &Context) -> Result<(), ErrorCL> {
+    fn build (&self, cx: &Context) -> Result<()> {
         let build_result = unsafe {
             clBuildProgram(self.0, 0, core::ptr::null(), core::ptr::null(), None, core::ptr::null_mut())
         };
@@ -103,14 +114,21 @@ impl Program {
             return Ok(());
         }
 
+        #[cfg(feature = "error-stack")]
         let devices = cx.devices()?;
+        #[cfg(feature = "error-stack")]
+        let mut build_result = error_stack::Report::new(Error::from(build_result));
+        #[cfg(not(feature = "error-stack"))]
+        let build_result = Error::from(build_result);
+
+        #[cfg(feature = "error-stack")]        
         for device in devices {
             let mut len = 0;
             let err = unsafe {
                 clGetProgramBuildInfo(self.0, device.0, CL_PROGRAM_BUILD_LOG, 0, core::ptr::null_mut(), &mut len)
             };
 
-            if err != 0 { return Err(ErrorCL::from(err)); }
+            self.parse_error(err, CL_PROGRAM_BUILD_LOG, 0)?;
             if len == 0 { continue }
 
             let mut result = Vec::<u8>::with_capacity(len);
@@ -118,43 +136,64 @@ impl Program {
                 clGetProgramBuildInfo(self.0, device.0, CL_PROGRAM_BUILD_LOG, len, result.as_mut_ptr().cast(), core::ptr::null_mut())
             };
 
-            if err != 0 { return Err(ErrorCL::from(err)); }
-
+            self.parse_error(err, CL_PROGRAM_BUILD_LOG, len)?;
             unsafe { result.set_len(len) }
-            return match String::from_utf8(result) {
-                Ok(err) => Err(ErrorCL::new(ErrorType::from(build_result), Some(err))),
-                _ => continue
-            }
-        }   
 
-        Err(ErrorCL::from(build_result))
+            if let Ok(result) = String::from_utf8(result) {
+                build_result = build_result.attach_printable(result);
+            }
+        } 
+
+        Err(build_result)
     }
 
     #[inline]
-    fn get_info_string (&self, ty: cl_program_info) -> Result<String, ErrorCL> {
+    fn get_info_string (&self, ty: cl_program_info) -> Result<String> {
         unsafe {
             let mut len = 0;
-            tri_panic!(clGetProgramInfo(self.0, ty, 0, core::ptr::null_mut(), &mut len));
+            let err = clGetProgramInfo(self.0, ty, 0, core::ptr::null_mut(), &mut len);
+            self.parse_error(err, ty, 0)?;
 
             let mut result = Vec::<u8>::with_capacity(len);
-            tri_panic!(clGetProgramInfo(self.0, ty, len, result.as_mut_ptr().cast(), core::ptr::null_mut()));
+            let err = clGetProgramInfo(self.0, ty, len, result.as_mut_ptr().cast(), core::ptr::null_mut());
+            self.parse_error(err, ty, len)?;
             
             result.set_len(len - 1);
-            String::from_utf8(result).map_err(|e| ErrorCL::new(ErrorType::InvalidValue, Some(e.to_string())))
+            Ok(String::from_utf8(result).unwrap())
         }
     }
 
     #[inline]
-    fn get_info<T> (&self, ty: cl_program_info) -> Result<T, ErrorCL> {
+    fn get_info<T> (&self, ty: cl_program_info) -> Result<T> {
         let mut value = MaybeUninit::<T>::uninit();
         
         unsafe {
             let err = clGetProgramInfo(self.0, ty, core::mem::size_of::<T>(), value.as_mut_ptr().cast(), core::ptr::null_mut());
-            if err == 0 {
-                return Ok(value.assume_init());
+            self.parse_error(err, ty, core::mem::size_of::<T>())?;
+            Ok(value.assume_init())
+        }
+    }
+
+    fn parse_error (&self, err: i32, ty: cl_program_info, size: usize) -> Result<()> {
+        if err == 0 {
+            return Ok(());
+        }
+
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "error-stack")] {
+                let err = Error::from(err);
+                let report = error_stack::Report::new(err);
+
+                let report = match err {
+                    Error::InvalidProgram => report.attach_printable(format!("'{:?}' is not a valid program", self.0)),
+                    Error::InvalidValue => report.attach_printable(format!("'{ty}' is not one of the supported values or size in bytes specified by {size} is < size of return type as specified in the table above and '{ty}' is not a NULL value")),
+                    _ => report
+                };
+
+                Err(report)
+            } else {
+                Err(Error::from(err))
             }
-            
-            Err(ErrorCL::from(err))
         }
     }
 }

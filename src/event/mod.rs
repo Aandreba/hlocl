@@ -1,5 +1,5 @@
 use cl_sys::{CL_COMMAND_NDRANGE_KERNEL, CL_COMMAND_TASK, CL_COMMAND_NATIVE_KERNEL, CL_COMMAND_READ_BUFFER, CL_COMMAND_WRITE_BUFFER, CL_COMMAND_COPY_BUFFER, CL_COMMAND_READ_IMAGE, CL_COMMAND_WRITE_IMAGE, CL_COMMAND_COPY_IMAGE, CL_COMMAND_COPY_IMAGE_TO_BUFFER, CL_COMMAND_COPY_BUFFER_TO_IMAGE, CL_COMMAND_MAP_BUFFER, CL_COMMAND_MAP_IMAGE, CL_COMMAND_UNMAP_MEM_OBJECT, CL_COMMAND_MARKER, CL_COMMAND_ACQUIRE_GL_OBJECTS, CL_COMMAND_RELEASE_GL_OBJECTS, CL_COMPLETE, CL_RUNNING, CL_SUBMITTED, CL_QUEUED};
-use crate::prelude::{CommandQueue, ErrorCL};
+use crate::prelude::{Result, CommandQueue};
 use self::various::{Map, Swap, Then};
 
 flat_mod!(base, user, buffer);
@@ -8,23 +8,23 @@ flat_mod!(future);
 pub mod various;
 
 #[cfg(feature = "async")]
-pub trait Event: Sized + Unpin + AsRef<BaseEvent> + futures::Future<Output = Result<Self::Result, ErrorCL>> {
+pub trait Event: Sized + Unpin + AsRef<BaseEvent> + futures::Future<Output = crate::prelude::Result<Self::Result>> {
     type Result;
 
-    fn wait (self) -> Result<Self::Result, ErrorCL>;
+    fn wait (self) -> Result<Self::Result>;
 
     #[inline(always)]
-    fn command_queue (&self) -> Result<CommandQueue, ErrorCL> {
+    fn command_queue (&self) -> Result<CommandQueue> {
         BaseEvent::command_queue(self.as_ref())
     }
 
     #[inline(always)]
-    fn ty (&self) -> Result<CommandType, ErrorCL> {
+    fn ty (&self) -> Result<CommandType> {
         BaseEvent::ty(self.as_ref())
     }
 
     #[inline(always)]
-    fn status (&self) -> Result<EventStatus, ErrorCL> {
+    fn status (&self) -> Result<EventStatus> {
         BaseEvent::status(self.as_ref())
     }
 
@@ -53,20 +53,20 @@ pub trait Event: Sized + Unpin + AsRef<BaseEvent> + futures::Future<Output = Res
 pub trait Event: Sized + AsRef<BaseEvent> {
     type Result;
 
-    fn wait (self) -> Result<Self::Result, ErrorCL>;
+    fn wait (self) -> Result<Self::Result>;
 
     #[inline(always)]
-    fn command_queue (&self) -> Result<CommandQueue, ErrorCL> {
+    fn command_queue (&self) -> Result<CommandQueue> {
         BaseEvent::command_queue(self.borrow_base())
     }
 
     #[inline(always)]
-    fn ty (&self) -> Result<CommandType, ErrorCL> {
+    fn ty (&self) -> Result<CommandType> {
         BaseEvent::ty(self.borrow_base())
     }
 
     #[inline(always)]
-    fn status (&self) -> Result<EventStatus, ErrorCL> {
+    fn status (&self) -> Result<EventStatus> {
         BaseEvent::status(self.borrow_base())
     }
 

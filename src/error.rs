@@ -1,9 +1,10 @@
 use core::{fmt::Display, hint::unreachable_unchecked};
 
+pub type Result<T> = core::result::Result<T, ErrorCL>;
 #[cfg(feature = "error-stack")]
-pub type Result<T> = error_stack::Result<T, ErrorCL>;
+pub type ErrorCL = error_stack::Report<Error>;
 #[cfg(not(feature = "error-stack"))]
-pub type Result<T> = Result<T, ErrorCL>;
+pub type ErrorCL = Error;
 
 const ERROR_MESSAGES_1 : &[&str] = &[
     "Device not found",
@@ -72,7 +73,7 @@ const ERROR_MESSAGES_2 : &[&str] = &[
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
-pub enum ErrorCL {
+pub enum Error {
     DeviceNotFound = -1,
     DeviceNotAvailable = -2,
     CompilerNotAvailable = -3,
@@ -137,9 +138,9 @@ pub enum ErrorCL {
 }
 
 #[cfg(feature = "error-stack")]
-impl error_stack::Context for ErrorCL {}
+impl error_stack::Context for Error {}
 
-impl Display for ErrorCL {
+impl Display for Error {
     #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let int = -(*self as i32) as usize;
@@ -154,14 +155,14 @@ impl Display for ErrorCL {
     }
 }
 
-impl Into<i32> for ErrorCL {
+impl Into<i32> for Error {
     #[inline(always)]
     fn into(self) -> i32 {
         self as i32
     }
 }
 
-impl From<i32> for ErrorCL {
+impl From<i32> for Error {
     #[inline(always)]
     fn from(value: i32) -> Self {
         match value {

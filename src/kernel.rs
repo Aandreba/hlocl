@@ -1,7 +1,7 @@
 use core::{mem::MaybeUninit, ptr::addr_of};
 use alloc::{string::{String}, vec::Vec, format};
 use cl_sys::{cl_kernel, clRetainKernel, clReleaseKernel, clCreateKernel, clGetKernelInfo, cl_kernel_info, CL_KERNEL_FUNCTION_NAME, CL_KERNEL_NUM_ARGS, CL_KERNEL_REFERENCE_COUNT, CL_KERNEL_CONTEXT, CL_KERNEL_PROGRAM, clSetKernelArg, cl_kernel_arg_info, CL_KERNEL_ARG_ADDRESS_GLOBAL, CL_KERNEL_ARG_ADDRESS_LOCAL, CL_KERNEL_ARG_ADDRESS_CONSTANT, CL_KERNEL_ARG_ADDRESS_PRIVATE, CL_KERNEL_ARG_ADDRESS_QUALIFIER, CL_KERNEL_ARG_ACCESS_READ_ONLY, CL_KERNEL_ARG_ACCESS_WRITE_ONLY, CL_KERNEL_ARG_ACCESS_READ_WRITE, CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_ACCESS_QUALIFIER, clGetKernelArgInfo, CL_KERNEL_ARG_NAME, CL_KERNEL_ARG_TYPE_NAME, CL_KERNEL_ARG_TYPE_CONST, CL_KERNEL_ARG_TYPE_RESTRICT, CL_KERNEL_ARG_TYPE_VOLATILE, CL_KERNEL_ARG_TYPE_QUALIFIER, clEnqueueNDRangeKernel, cl_mem};
-use crate::{prelude::{ErrorCL, Program, Context, CommandQueue, BaseEvent}, error::Result, buffer::UnsafeBuffer};
+use crate::{prelude::{Error, Program, Context, CommandQueue, BaseEvent}, error::Result, buffer::UnsafeBuffer};
 
 #[derive(PartialEq, Eq, Hash)]
 #[repr(transparent)]
@@ -22,46 +22,43 @@ impl Kernel {
 
         cfg_if::cfg_if! {
             if #[cfg(feature = "error-stack")] {
-                let err = ErrorCL::from(err);
+                let err = Error::from(err);
                 let report = error_stack::Report::new(err);
 
                 let report = match err {
-                    ErrorCL::InvalidProgram => report.attach_printable("program is not a valid program object"),
-                    ErrorCL::InvalidProgramExecutable => report.attach_printable("there is no successfully built executable for program"),
-                    ErrorCL::InvalidKernelName => report.attach_printable("kernel name not found in program"),
-                    ErrorCL::InvalidKernelDefinition => report.attach_printable("the function definition for __kernel function given by kernel name does not exist"),
-                    ErrorCL::InvalidValue => report.attach_printable("kernel name is null"),
-                    ErrorCL::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
+                    Error::InvalidProgram => report.attach_printable("program is not a valid program object"),
+                    Error::InvalidProgramExecutable => report.attach_printable("there is no successfully built executable for program"),
+                    Error::InvalidKernelName => report.attach_printable("kernel name not found in program"),
+                    Error::InvalidKernelDefinition => report.attach_printable("the function definition for __kernel function given by kernel name does not exist"),
+                    Error::InvalidValue => report.attach_printable("kernel name is null"),
+                    Error::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
                     _ => report
                 };
 
                 Err(report)
             } else {
-                Err(ErrorCL::from(err))
+                Err(Error::from(err))
             }
         }
     }
 
     #[inline(always)]
-    pub unsafe fn set_arg<T: Copy> (&mut self, idx: u32, v: T) -> Result<()> {
-        let err = clSetKernelArg(self.0, idx, core::mem::size_of::<T>(), addr_of!(v).cast());
-        if err == 0 { return Ok(()); }
-        Err(ErrorCL::from(err))
+    pub fn set_arg<T: Copy> (&mut self, idx: u32, v: T) -> Result<()> {
+        let err = unsafe { clSetKernelArg(self.0, idx, core::mem::size_of::<T>(), addr_of!(v).cast()) };
+        self.parse_error_set_arg(err, idx, core::mem::size_of::<T>())
     }
 
     #[inline(always)]
-    pub unsafe fn set_mem_arg<T: Copy + Unpin> (&mut self, idx: u32, v: &UnsafeBuffer<T>) -> Result<()> {
-        let err = clSetKernelArg(self.0, idx, core::mem::size_of::<cl_mem>(), addr_of!(v.0).cast());
-        if err == 0 { return Ok(()); }
-        Err(ErrorCL::from(err))
+    pub fn set_mem_arg<T: Copy + Unpin> (&mut self, idx: u32, v: &UnsafeBuffer<T>) -> Result<()> {
+        let err = unsafe { clSetKernelArg(self.0, idx, core::mem::size_of::<cl_mem>(), addr_of!(v.0).cast()) };
+        self.parse_error_set_arg(err, idx, core::mem::size_of::<cl_mem>())
     }
 
     #[inline(always)]
-    pub unsafe fn alloc_arg<T> (&mut self, idx: u32, len: usize) -> Result<()> {
+    pub fn alloc_arg<T> (&mut self, idx: u32, len: usize) -> Result<()> {
         let arg_size = len.checked_mul(core::mem::size_of::<T>()).expect("Kernel argument size overflow");
-        let err = clSetKernelArg(self.0, idx, arg_size, core::ptr::null_mut());
-        if err == 0 { return Ok(()); }
-        Err(ErrorCL::from(err))
+        let err = unsafe { clSetKernelArg(self.0, idx, arg_size, core::ptr::null_mut()) };
+        self.parse_error_set_arg(err, idx, arg_size)
     }
 
     /// Return the kernel function name.
@@ -147,28 +144,28 @@ impl Kernel {
 
         cfg_if::cfg_if! {
             if #[cfg(feature = "error-stack")] {
-                let err = ErrorCL::from(err);
+                let err = Error::from(err);
                 let report = error_stack::Report::new(err);
 
                 let report = match err {
-                    ErrorCL::InvalidProgramExecutable => report.attach_printable("there is no successfully built program executable available for device associated with the command queue"),
-                    ErrorCL::InvalidCommandQueue => report.attach_printable("command queue is not a valid command-queue."),
-                    ErrorCL::InvalidKernel => report.attach_printable("kernel is not a valid kernel object"),
-                    ErrorCL::InvalidContext => report.attach_printable("context associated with the command queue and kernel is not the same or the context associated with command queue and events in the event wait list are not the same"),
-                    ErrorCL::InvalidKernelArgs => report.attach_printable("the kernel argument values have not been specified"),
-                    ErrorCL::InvalidWorkDimension => report.attach_printable("work-dimension is not a valid value (i.e. a value between 1 and 3)"),
-                    ErrorCL::InvalidWorkGroupSize => report.attach_printable("local work size is specified and is invalid (i.e. specified values in local work size exceed the maximum size of workgroup for the device associated with queue)"),
-                    ErrorCL::InvalidGlobalOffset => report.attach_printable("global work offset is not NULL"),
-                    ErrorCL::OutOfResources => report.attach_printable("there is a failure to queue the execution instance of kernel on the command-queue because of insufficient resources needed to execute the kernel"),
-                    ErrorCL::MemObjectAllocationFailure => report.attach_printable("there is a failure to allocate memory for data store associated with image or buffer objects specified as arguments to kernel"),
-                    ErrorCL::InvalidEventWaitList => report.attach_printable("event objects in event wait list are not valid events"),
-                    ErrorCL::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
+                    Error::InvalidProgramExecutable => report.attach_printable("there is no successfully built program executable available for device associated with the command queue"),
+                    Error::InvalidCommandQueue => report.attach_printable("command queue is not a valid command-queue."),
+                    Error::InvalidKernel => report.attach_printable("kernel is not a valid kernel object"),
+                    Error::InvalidContext => report.attach_printable("context associated with the command queue and kernel is not the same or the context associated with command queue and events in the event wait list are not the same"),
+                    Error::InvalidKernelArgs => report.attach_printable("the kernel argument values have not been specified"),
+                    Error::InvalidWorkDimension => report.attach_printable("work-dimension is not a valid value (i.e. a value between 1 and 3)"),
+                    Error::InvalidWorkGroupSize => report.attach_printable("local work size is specified and is invalid (i.e. specified values in local work size exceed the maximum size of workgroup for the device associated with queue)"),
+                    Error::InvalidGlobalOffset => report.attach_printable("global work offset is not NULL"),
+                    Error::OutOfResources => report.attach_printable("there is a failure to queue the execution instance of kernel on the command-queue because of insufficient resources needed to execute the kernel"),
+                    Error::MemObjectAllocationFailure => report.attach_printable("there is a failure to allocate memory for data store associated with image or buffer objects specified as arguments to kernel"),
+                    Error::InvalidEventWaitList => report.attach_printable("event objects in event wait list are not valid events"),
+                    Error::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
                     _ => report
                 };
 
                 Err(report)
             } else {
-                Err(ErrorCL::from(err))
+                Err(Error::from(err))
             }
         }
     }
@@ -234,20 +231,20 @@ impl Kernel {
 
         cfg_if::cfg_if! {
             if #[cfg(feature = "error-stack")] {
-                let err = ErrorCL::from(err);
+                let err = Error::from(err);
                 let report = error_stack::Report::new(err);
 
                 let report = match err {
-                    ErrorCL::InvalidKernel => report.attach_printable(format!("'{:?}' is not a valid kernel", self.0)),
-                    ErrorCL::InvalidValue => report.attach_printable(format!("'{ty}' is not one of the supported values or size in bytes specified by {size} is < size of return type as specified in the table above and '{ty}' is not a NULL value")),
-                    ErrorCL::OutOfResources => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the device"),
-                    ErrorCL::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
+                    Error::InvalidKernel => report.attach_printable(format!("'{:?}' is not a valid kernel", self.0)),
+                    Error::InvalidValue => report.attach_printable(format!("'{ty}' is not one of the supported values or size in bytes specified by {size} is < size of return type as specified in the table above and '{ty}' is not a NULL value")),
+                    Error::OutOfResources => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the device"),
+                    Error::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
                     _ => report
                 };
 
                 Err(report)
             } else {
-                Err(ErrorCL::from(err))
+                Err(Error::from(err))
             }
         }
     }
@@ -257,23 +254,49 @@ impl Kernel {
             return Ok(());
         }
 
-        todo!();
         cfg_if::cfg_if! {
             if #[cfg(feature = "error-stack")] {
-                let err = ErrorCL::from(err);
+                let err = Error::from(err);
                 let report = error_stack::Report::new(err);
 
                 let report = match err {
-                    ErrorCL::InvalidKernel => report.attach_printable(format!("'{:?}' is not a valid kernel", self.0)),
-                    ErrorCL::InvalidValue => report.attach_printable(format!("'{ty}' is not one of the supported values or size in bytes specified by {size} is < size of return type as specified in the table above and '{ty}' is not a NULL value")),
-                    ErrorCL::OutOfResources => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the device"),
-                    ErrorCL::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
+                    Error::InvalidKernel => report.attach_printable(format!("'{:?}' is not a valid kernel", self.0)),
+                    Error::InvalidValue => report.attach_printable(format!("'{ty}' is not one of the supported values or size in bytes specified by {size} is < size of return type as specified in the table above and '{ty}' is not a NULL value")),
+                    Error::OutOfResources => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the device"),
+                    Error::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
                     _ => report
                 };
 
                 Err(report)
             } else {
-                Err(ErrorCL::from(err))
+                Err(Error::from(err))
+            }
+        }
+    }
+
+    fn parse_error_set_arg (&self, err: i32, idx: u32, size: usize) -> Result<()> {
+        if err == 0 {
+            return Ok(());
+        }
+
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "error-stack")] {
+                let err = Error::from(err);
+                let report = error_stack::Report::new(err);
+
+                let report = match err {
+                    Error::InvalidKernel => report.attach_printable(format!("'{:?}' is not a valid kernel", self.0)),
+                    Error::InvalidArgIndex => report.attach_printable(format!("'{idx}' is not a valid argument index")),
+                    Error::InvalidArgValue => report.attach_printable("arg value specified is NULL for an argument that is not declared with the __local qualifier or vice-versa"),
+                    Error::InvalidMemObject => report.attach_printable("arg value is not a valid memory object for an argument declared to be a memory object"),
+                    Error::InvalidSampler => report.attach_printable("arg value is not a valid sampler for an argument declared to be a sampler"),
+                    Error::InvalidArgSize => report.attach_printable(format!("{size} != size of the declared data type")),
+                    _ => report
+                };
+
+                Err(report)
+            } else {
+                Err(Error::from(err))
             }
         }
     }

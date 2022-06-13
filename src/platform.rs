@@ -1,7 +1,7 @@
 use core::{fmt::Debug, mem::MaybeUninit};
 use alloc::{vec::Vec, string::{String}};
 use cl_sys::{cl_platform_id, clGetPlatformInfo, cl_platform_info, c_uchar, CL_PLATFORM_PROFILE, CL_PLATFORM_VERSION, CL_PLATFORM_NAME, CL_PLATFORM_VENDOR, CL_PLATFORM_EXTENSIONS, CL_PLATFORM_HOST_TIMER_RESOLUTION, cl_uchar, clGetPlatformIDs};
-use crate::{prelude::{Result, ErrorCL}};
+use crate::{prelude::{Result, Error}};
 
 lazy_static! {
     static ref PLATFORMS : Vec<Platform> = unsafe {
@@ -100,18 +100,18 @@ impl Platform {
 
         cfg_if::cfg_if! {
             if #[cfg(feature = "error-stack")] {
-                let err = ErrorCL::from(err);
+                let err = Error::from(err);
                 let report = error_stack::Report::new(err);
 
                 let report = match err {
-                    ErrorCL::InvalidPlatform => report.attach_printable("platform is not a valid platform"),
-                    ErrorCL::InvalidValue => report.attach_printable("param_name is not one of the supported values or size in bytes specified by param_value_size is less than size of return type and param_value is not a NULL value"),
+                    Error::InvalidPlatform => report.attach_printable("platform is not a valid platform"),
+                    Error::InvalidValue => report.attach_printable("param_name is not one of the supported values or size in bytes specified by param_value_size is less than size of return type and param_value is not a NULL value"),
                     _ => report
                 };
 
                 Err(report)
             } else {
-                Err(ErrorCL::from(err))
+                Err(Error::from(err))
             }
         }
     }

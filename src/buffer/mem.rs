@@ -1,7 +1,6 @@
 use core::{ops::RangeBounds, fmt::Debug};
 use alloc::vec::Vec;
-
-use crate::{prelude::{Context, ErrorCL, CommandQueue}, event::{BaseEvent, Event, WriteBuffer, various::{Swap, Then}, ReadBuffer}, utils::ContextManager};
+use crate::{prelude::{Result, Context, CommandQueue}, event::{BaseEvent, Event, WriteBuffer, various::{Swap, Then}, ReadBuffer}, utils::ContextManager};
 use super::{UnsafeBuffer, MemFlags};
 
 #[derive(Clone)]
@@ -10,36 +9,36 @@ pub struct MemBuffer<T: 'static + Copy + Unpin> (pub(super) UnsafeBuffer<T>);
 
 impl<T: Copy + Unpin> MemBuffer<T> {
     #[inline(always)]
-    pub fn new (ctx: &Context, flags: impl Into<Option<MemFlags>>, v: &[T]) -> Result<Self, ErrorCL> {
+    pub fn new (ctx: &Context, flags: impl Into<Option<MemFlags>>, v: &[T]) -> Result<Self> {
         UnsafeBuffer::<T>::new_and_copy(ctx, flags, v).map(Self)
     }
 
     #[inline(always)]
-    pub unsafe fn uninit (ctx: &Context, size: usize, flags: impl Into<Option<MemFlags>>) -> Result<Self, ErrorCL> {
+    pub unsafe fn uninit (ctx: &Context, size: usize, flags: impl Into<Option<MemFlags>>) -> Result<Self> {
         UnsafeBuffer::new(ctx, size, flags).map(Self)
     }
 
     #[inline(always)]
-    pub fn to_vec (&self, queue: &CommandQueue, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Vec<T>, ReadBuffer<'static>>, ErrorCL> where T: 'static {
+    pub fn to_vec (&self, queue: &CommandQueue, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Vec<T>, ReadBuffer<'static>>> where T: 'static {
         unsafe { self.read(queue, false, 0, self.len()?, wait) }
     }
 
     #[inline(always)]
-    pub fn get (&self, queue: &CommandQueue, idx: usize, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<impl Event<Result = T>, ErrorCL> where T: 'static {
+    pub fn get (&self, queue: &CommandQueue, idx: usize, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<impl Event<Result = T>> where T: 'static {
         let len = self.len()?;
         if idx >= len { panic!("Index out of bounds. Tried to access index {idx} of a buffer of size {len}") }
         unsafe { self.get_unchecked(queue, idx, wait) }
     }
 
     #[inline(always)]
-    pub fn set (&mut self, queue: &CommandQueue, idx: usize, v: T, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Then<WriteBuffer, impl FnOnce(&mut ())>, ErrorCL> {
+    pub fn set (&mut self, queue: &CommandQueue, idx: usize, v: T, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Then<WriteBuffer, impl FnOnce(&mut ())>> {
         let len = self.len()?;
         if idx >= len { panic!("Index out of bounds. Tried to access index {idx} of a buffer of size {len}") }
         unsafe { self.set_unchecked(queue, idx, v, wait) }
     }
 
     #[inline(always)]
-    pub fn slice (&self, range: impl RangeBounds<usize>) -> Result<Self, ErrorCL> {
+    pub fn slice (&self, range: impl RangeBounds<usize>) -> Result<Self> {
         let len = self.len()?;
 
         let offset = match range.start_bound() {
@@ -59,19 +58,19 @@ impl<T: Copy + Unpin> MemBuffer<T> {
     }
     
     #[inline(always)]
-    pub fn get_checked (&self, queue: &CommandQueue, idx: usize, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Option<impl Event<Result = T>>, ErrorCL> {
+    pub fn get_checked (&self, queue: &CommandQueue, idx: usize, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Option<impl Event<Result = T>>> {
         if idx >= self.len()? { return Ok(None); }
         unsafe { self.get_unchecked(queue, idx, wait).map(Some) }
     }
 
     #[inline(always)]
-    pub fn set_checked (&mut self, queue: &CommandQueue, idx: usize, v: T, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Option<Then<WriteBuffer, impl FnOnce(&mut ())>>, ErrorCL> {
+    pub fn set_checked (&mut self, queue: &CommandQueue, idx: usize, v: T, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Option<Then<WriteBuffer, impl FnOnce(&mut ())>>> {
         if idx >= self.len()? { return Ok(None); }
         unsafe { self.set_unchecked(queue, idx, v, wait).map(Some) }
     }
 
     #[inline(always)]
-    pub fn slice_checked (&self, range: impl RangeBounds<usize>) -> Result<Option<Self>, ErrorCL> {
+    pub fn slice_checked (&self, range: impl RangeBounds<usize>) -> Result<Option<Self>> {
         let len = self.len()?;
 
         let offset = match range.start_bound() {

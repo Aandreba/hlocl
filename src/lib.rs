@@ -25,7 +25,7 @@ macro_rules! tri_panic {
     ($i:expr) => {
         match $i {
             0 => {},
-            _ => panic!("{}", crate::error::ErrorCL::from($i))
+            _ => panic!("{}", $crate::error::Error::from($i))
         }
     };
 }
@@ -47,7 +47,7 @@ macro_rules! impl_prog {
         }
 
         impl<T: $crate::utils::MathCL, R> $ctx<T, R> where R: parking_lot::lock_api::RawMutex {
-            pub fn new (ctx: $crate::prelude::Context) -> Result<Self, $crate::prelude::ErrorCL> {
+            pub fn new (ctx: $crate::prelude::Context) -> $crate::prelude::Result<Self> {
                 $(let $id = $name::new(&ctx)?;)*
 
                 Ok(Self {
@@ -103,7 +103,7 @@ macro_rules! impl_prog {
             }
 
             impl<T: $crate::utils::MathCL, R: parking_lot::lock_api::RawMutex> $name<T, R> {
-                pub fn new<'a> (ctx: &$crate::prelude::Context) -> Result<Self, $crate::prelude::ErrorCL> {
+                pub fn new<'a> (ctx: &$crate::prelude::Context) -> $crate::prelude::Result<Self> {
                     let program = $crate::prelude::Program::from_source(ctx, &std::format!("#define IS_FLOAT {}\ntypedef {} number;\n{}", T::FLOAT, T::NAME, include_str!($path)))?;
                     
                     $(
@@ -273,7 +273,7 @@ pub mod prelude {
     pub use crate::device::Device;
     pub use crate::context::Context;
     pub use crate::queue::CommandQueue;
-    pub use crate::error::{Result, ErrorCL};
+    pub use crate::error::{Result, Error};
     pub use crate::program::Program;
     pub use crate::event::{Event, BaseEvent};
     pub use crate::buffer::{MemBuffer};
@@ -291,4 +291,4 @@ pub mod event;
 pub mod kernel;
 
 pub mod utils;
-pub mod vec;
+//pub mod vec;

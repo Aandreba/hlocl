@@ -1,4 +1,4 @@
-use crate::prelude::{Event, BaseEvent, ErrorCL};
+use crate::prelude::{Event, Result, BaseEvent};
 
 pub struct Swap<T, E> {
     inner: E,
@@ -24,7 +24,7 @@ impl<T: Unpin, E: Event> Event for Swap<T, E> {
     type Result = T;
 
     #[inline(always)]
-    fn wait (self) -> Result<Self::Result, ErrorCL> {
+    fn wait (self) -> Result<Self::Result> {
         self.inner.wait()?;
         #[cfg(feature = "async")]
         return Ok(self.v.unwrap());
@@ -35,7 +35,7 @@ impl<T: Unpin, E: Event> Event for Swap<T, E> {
 
 #[cfg(feature = "async")]
 impl<T: Unpin, E: Event> futures::Future for Swap<T, E> {
-    type Output = Result<T, ErrorCL>;
+    type Output = Result<T>;
 
     #[inline(always)]
     fn poll(mut self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> core::task::Poll<Self::Output> {

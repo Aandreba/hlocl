@@ -215,7 +215,7 @@ impl<T: MathCL> Vector<T> {
 
 // LOCKING UNCHECKED
 impl<T: MathCL> Vector<T> {
-    pub unsafe fn add_unchecked (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Self, BaseEvent>, ErrorCL> {
+    pub unsafe fn add_unchecked (&self, rhs: &Self, queue: &CommandQueue, len: impl Into<Option<usize>>, prog: impl AsRef<XArithProgram<T>>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<Self, BaseEvent>> {
         let prog = prog.as_ref();
         let max_wg_size = queue.device()?.max_work_group_size()?.get();
 

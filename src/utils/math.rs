@@ -19,7 +19,7 @@ pub trait MathCL: 'static + Copy + Unpin + Debug {
 macro_rules! float {
     (f32) => {true};
     (f64) => {true};
-    (half::f16) => {true};
+    (f16) => {true};
     ($t:ty) => {false}
 }
 

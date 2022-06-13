@@ -1,4 +1,5 @@
 use crate::{event::{Event, BaseEvent}};
+use crate::prelude::Result;
 
 pub struct Map<O, E: Event, F: Unpin + FnOnce(E::Result) -> O> {
     pub(crate) inner: E,
@@ -24,7 +25,7 @@ impl<O, E: Event, F: Unpin + FnOnce(E::Result) -> O> Event for Map<O, E, F> {
     type Result = O;
 
     #[inline(always)]
-    fn wait (self) -> Result<Self::Result, crate::prelude::ErrorCL> {
+    fn wait (self) -> Result<Self::Result> {
         let v = self.inner.wait()?;
         #[cfg(feature = "async")]
         return Ok(self.f.unwrap()(v));
@@ -35,7 +36,7 @@ impl<O, E: Event, F: Unpin + FnOnce(E::Result) -> O> Event for Map<O, E, F> {
 
 #[cfg(feature = "async")]
 impl<O, E: Event + Unpin, F: Unpin + FnOnce(E::Result) -> O> futures::Future for Map<O, E, F> {
-    type Output = Result<O, crate::prelude::ErrorCL>;
+    type Output = Result<O>;
 
     #[inline(always)]
     fn poll(mut self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> core::task::Poll<Self::Output> {

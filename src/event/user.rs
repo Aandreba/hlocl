@@ -1,5 +1,6 @@
+use alloc::format;
 use cl_sys::{clCreateUserEvent, clSetUserEventStatus, CL_COMPLETE};
-use crate::prelude::{ErrorCL, Context};
+use crate::prelude::{Result, Error, Context};
 use super::{BaseEvent, Event};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -9,41 +10,72 @@ pub struct UserEvent (BaseEvent);
 impl UserEvent {
     #[cfg(feature = "def")]
     #[inline(always)]
-    pub fn new () -> Result<Self, ErrorCL> {
+    pub fn new () -> Result<Self> {
         Self::with_context(Context::default())
     }
 
-    #[inline(always)]
-    pub fn with_context (ctx: &Context) -> Result<Self, ErrorCL> {
+    #[inline]
+    pub fn with_context (ctx: &Context) -> Result<Self> {
         let mut err = 0;
         let id = unsafe {
             clCreateUserEvent(ctx.0, &mut err)
         };
 
         if err == 0 {
-            return Err(ErrorCL::from(err));
+            let inner = BaseEvent::new(id)?;
+            return Ok(Self(inner));
         }
 
-        let id = BaseEvent::new(id)?;
-        Ok(Self(id))
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "error-stack")] {
+                let err = Error::from(err);
+                let report = error_stack::Report::new(err);
+
+                let report = match err {
+                    Error::InvalidContext => report.attach_printable(format!("'{:?}' is not a valid context", id)),
+                    Error::OutOfResources => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the device"),
+                    Error::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
+                    _ => report
+                };
+
+                Err(report)
+            } else {
+                Err(Error::from(err))
+            }
+        }
     }
 
     #[inline(always)]
-    pub fn set_status (&self, complete: Result<(), ErrorCL>) -> Result<(), ErrorCL> {
+    pub fn set_status (&self, complete: Option<Error>) -> Result<()> {
         let status = match complete {
-            Ok(_) => CL_COMPLETE as i32,
-            Err(e) => e.ty().into(),
+            None => CL_COMPLETE as i32,
+            Some(e) => e.into(),
         };
 
         let err = unsafe {
             clSetUserEventStatus(self.0.0, status)
         };
 
-        if err == 0 {
-            return Ok(())
-        }
+        if err == 0 { return Ok(()) }
 
-        Err(ErrorCL::from(err))
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "error-stack")] {
+                let err = Error::from(err);
+                let report = error_stack::Report::new(err);
+
+                let report = match err {
+                    Error::InvalidEvent => report.attach_printable(format!("'{:?}' is not a valid event", self.0.0)),
+                    Error::InvalidOperation => report.attach_printable("the execution status for event has already been changed by a previous call"),
+                    Error::OutOfResources => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the device"),
+                    Error::OutOfHostMemory => report.attach_printable("failure to allocate resources required by the OpenCL implementation on the host"),
+                    _ => report
+                };
+
+                Err(report)
+            } else {
+                Err(Error::from(err))
+            }
+        }
     }
 }
 
@@ -51,7 +83,7 @@ impl Event for UserEvent {
     type Result = ();
 
     #[inline(always)]
-    fn wait (self) -> Result<Self::Result, ErrorCL> {
+    fn wait (self) -> Result<Self::Result> {
         self.0.wait()
     }
 }
@@ -65,7 +97,7 @@ impl AsRef<BaseEvent> for UserEvent {
 
 #[cfg(feature = "async")]
 impl futures::Future for UserEvent {
-    type Output = Result<(), ErrorCL>;
+    type Output = Result<()>;
 
     #[inline(always)]
     fn poll(mut self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> core::task::Poll<Self::Output> {
