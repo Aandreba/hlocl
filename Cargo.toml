@@ -20,6 +20,9 @@ num-traits = "0.2.15"
 error-stack = { version = "0.1.0", optional = true }
 future-parking_lot = { version = "0.3.3", optional = true }
 futures = { version = "0.3.21", optional = true }
+serde = { version = "1", optional = true }
+rand = { version = "0.8.5", optional = true }
 
 [dev-dependencies]
 tokio = { veriosn = "1", features = ["full"] }
+serde_json = "1"

@@ -1,4 +1,4 @@
-use core::{pin::Pin, marker::PhantomData};
+use core::{marker::PhantomData};
 use alloc::{vec::Vec, format};
 use cl_sys::{cl_event, clEnqueueWriteBuffer, clEnqueueCopyBuffer, clEnqueueReadBuffer};
 use crate::{prelude::{Result, Error, CommandQueue}, buffer::{MemBuffer}};
@@ -60,6 +60,12 @@ impl Event for CopyBuffer<'_, '_> {
         self.inner.wait()?;
         Ok(())
     }
+
+    #[inline(always)]
+    fn wait_all (iter: impl IntoIterator<Item = Self>) -> Result<alloc::vec::Vec<Self::Result>> {
+        let iter = iter.into_iter().map(|x| x.inner);
+        BaseEvent::wait_all(iter)
+    }
 }
 
 #[cfg(feature = "async")]
@@ -87,9 +93,7 @@ pub struct WriteBuffer<'a, 'b> {
 }
 
 impl<'a, 'b> WriteBuffer<'a, 'b> {
-    pub fn new<T: Copy + Unpin> (queue: &CommandQueue, blocking: bool, offset: usize, src: &'a [T], dst: &'b mut MemBuffer<T>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self> {
-        let src = Pin::new(src);
-
+    pub unsafe fn new_by_ref<T: 'static + Copy + Unpin> (queue: &CommandQueue, blocking: bool, offset: usize, src: &'a [T], dst: &'b MemBuffer<T>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self> {
         let wait = wait.into_iter().map(|x| x.as_ref().0).collect::<Vec<_>>();
         let wait_len = u32::try_from(wait.len()).unwrap();
         let wait = match wait_len {
@@ -97,12 +101,11 @@ impl<'a, 'b> WriteBuffer<'a, 'b> {
             _ => wait.as_ptr()
         };
 
+        let offset = offset.checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
+        let len = src.len().checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
+
         let mut event : cl_event = core::ptr::null_mut();
-        let err = unsafe {
-            let offset = offset.checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
-            let len = src.len().checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
-            clEnqueueWriteBuffer(queue.0, dst.0, cl_sys::cl_bool::from(blocking), offset, len, src.as_ptr().cast(), wait_len, wait, &mut event)
-        };
+        let err = clEnqueueWriteBuffer(queue.0, dst.0, cl_sys::cl_bool::from(blocking), offset, len, src.as_ptr().cast(), wait_len, wait, &mut event);
 
         if err == 0 {
             let inner = BaseEvent::new(event)?;
@@ -131,6 +134,12 @@ impl<'a, 'b> WriteBuffer<'a, 'b> {
             }
         }
     }
+
+    #[inline(always)]
+    pub fn new<T: Copy + Unpin> (queue: &CommandQueue, blocking: bool, offset: usize, src: &'a [T], dst: &'b mut MemBuffer<T>, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Self> {
+        // SAFETY: Borrow of dst is mutable, so it's safe to write in it
+        unsafe { Self::new_by_ref(queue, blocking, offset, src, dst, wait) }
+    }
 }
 
 impl Event for WriteBuffer<'_, '_> {
@@ -139,6 +148,12 @@ impl Event for WriteBuffer<'_, '_> {
     #[inline(always)]
     fn wait (self) -> Result<Self::Result> {
         self.inner.wait()
+    }
+
+    #[inline(always)]
+    fn wait_all (iter: impl IntoIterator<Item = Self>) -> Result<alloc::vec::Vec<Self::Result>> {
+        let iter = iter.into_iter().map(|x| x.inner);
+        BaseEvent::wait_all(iter)
     }
 }
 
@@ -216,6 +231,12 @@ impl Event for ReadBuffer<'_, '_> {
     #[inline(always)]
     fn wait (self) -> Result<Self::Result> {
         self.inner.wait()
+    }
+
+    #[inline(always)]
+    fn wait_all (iter: impl IntoIterator<Item = Self>) -> Result<alloc::vec::Vec<Self::Result>> {
+        let iter = iter.into_iter().map(|x| x.inner);
+        BaseEvent::wait_all(iter)
     }
 }
 

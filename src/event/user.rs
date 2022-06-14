@@ -86,6 +86,12 @@ impl Event for UserEvent {
     fn wait (self) -> Result<Self::Result> {
         self.0.wait()
     }
+
+    #[inline(always)]
+    fn wait_all (iter: impl IntoIterator<Item = Self>) -> Result<alloc::vec::Vec<Self::Result>> {
+        let iter = iter.into_iter().map(|x| x.0);
+        BaseEvent::wait_all(iter)
+    }
 }
 
 impl AsRef<BaseEvent> for UserEvent {

@@ -1,0 +1,30 @@
+#define BITS 32
+
+#if BITS == 8
+typedef uchar integer;
+#elif BITS == 16
+typedef ushort integer
+#elif BITS == 32
+typedef uint integer;
+typedef float floating;
+#else
+typedef ulong integer;
+typedef double floating;
+#endif
+
+#define MUL 0x5DEECE66Dl
+#define ADDEND 0xBl
+#define MASK ((1l << 48) - 1)
+
+void kernel rand_int (const ulong n, volatile __global atomic_ulong *seed, __global integer *out) {
+    for (ulong id = get_global_id(0); id<n; id += get_global_size(0)) {
+        ulong oldseed, nextseed;
+        
+        do {
+            oldseed = atomic_load(seed);
+            nextseed = (oldseed * MUL + ADDEND) & MASK;
+        } while (!atomic_compare_exchange_strong(seed, &oldseed, nextseed));
+
+        out[id] = (integer)(nextseed >> (48 - BITS));
+    }
+}

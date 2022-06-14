@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use cl_sys::{CL_COMMAND_NDRANGE_KERNEL, CL_COMMAND_TASK, CL_COMMAND_NATIVE_KERNEL, CL_COMMAND_READ_BUFFER, CL_COMMAND_WRITE_BUFFER, CL_COMMAND_COPY_BUFFER, CL_COMMAND_READ_IMAGE, CL_COMMAND_WRITE_IMAGE, CL_COMMAND_COPY_IMAGE, CL_COMMAND_COPY_IMAGE_TO_BUFFER, CL_COMMAND_COPY_BUFFER_TO_IMAGE, CL_COMMAND_MAP_BUFFER, CL_COMMAND_MAP_IMAGE, CL_COMMAND_UNMAP_MEM_OBJECT, CL_COMMAND_MARKER, CL_COMMAND_ACQUIRE_GL_OBJECTS, CL_COMMAND_RELEASE_GL_OBJECTS, CL_COMPLETE, CL_RUNNING, CL_SUBMITTED, CL_QUEUED};
 use crate::prelude::{Result, CommandQueue};
 use self::various::{Map, Swap, Then};
@@ -12,6 +13,7 @@ pub trait Event: Sized + Unpin + AsRef<BaseEvent> + futures::Future<Output = cra
     type Result;
 
     fn wait (self) -> Result<Self::Result>;
+    fn wait_all (iter: impl IntoIterator<Item = Self>) -> Result<Vec<Self::Result>>;
 
     #[inline(always)]
     fn command_queue (&self) -> Result<CommandQueue> {
@@ -54,6 +56,7 @@ pub trait Event: Sized + AsRef<BaseEvent> {
     type Result;
 
     fn wait (self) -> Result<Self::Result>;
+    fn wait_all (iter: impl IntoIterator<Item = Self>) -> Result<Vec<Self::Result>>;
 
     #[inline(always)]
     fn command_queue (&self) -> Result<CommandQueue> {

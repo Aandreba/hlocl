@@ -39,7 +39,7 @@ macro_rules! impl_prog {
     );+}) => {
         // CONTEXT
         $( #[$ctx_meta] )*
-        $ctx_vis struct $ctx<T: $crate::utils::MathCL, R = parking_lot::RawMutex> where R: parking_lot::lock_api::RawMutex {
+        $ctx_vis struct $ctx<R = parking_lot::RawMutex> where R: parking_lot::lock_api::RawMutex {
             ctx: $crate::context::Context,
             $(
                 pub $id: $name<T, R>

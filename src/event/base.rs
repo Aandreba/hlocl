@@ -1,5 +1,5 @@
 use core::{mem::MaybeUninit, ptr::addr_of, hash::Hash};
-use alloc::format;
+use alloc::{format, vec::Vec};
 use cl_sys::{cl_event, cl_event_info, clReleaseEvent, clGetEventInfo, CL_EVENT_COMMAND_QUEUE, CL_EVENT_COMMAND_TYPE, CL_EVENT_COMMAND_EXECUTION_STATUS, clWaitForEvents, clRetainEvent};
 use crate::prelude::{Result, Error};
 use super::Event;
@@ -140,7 +140,37 @@ impl Event for BaseEvent {
                 Err(Error::from(err))
             }
         }
-    }    
+    }
+    
+    #[inline(always)]
+    fn wait_all (iter: impl IntoIterator<Item = Self>) -> Result<Vec<()>> {
+        let events = iter.into_iter().map(|x| x.0).collect::<Vec<_>>();
+        let len = u32::try_from(events.len()).expect("Too many events");
+
+        let err = unsafe {
+            clWaitForEvents(len, events.as_ptr())
+        };
+
+        if err == 0 { return Ok(alloc::vec![(); events.len()]) }
+
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "error-stack")] {
+                let err = Error::from(err);
+                let report = error_stack::Report::new(err);
+
+                let report = match err {
+                    Error::InvalidEvent => report.attach_printable("invalid event found"),
+                    Error::InvalidValue => report.attach_printable("number of events is zero"),
+                    Error::InvalidContext => report.attach_printable("events specified in event list do not belong to the same context"),
+                    _ => report
+                };
+
+                Err(report)
+            } else {
+                Err(Error::from(err))
+            }
+        }
+    }
 }
 
 impl AsRef<BaseEvent> for BaseEvent {

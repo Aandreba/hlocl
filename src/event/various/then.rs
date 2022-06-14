@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crate::{event::{Event, BaseEvent}};
 use crate::prelude::Result;
 
@@ -32,6 +34,19 @@ impl<E: Event, F: Unpin + FnOnce(&mut E::Result)> Event for Then<E, F> {
         #[cfg(not(feature = "async"))]
         (self.f)(&mut v);
         return Ok(v)
+    }
+
+    #[inline(always)]
+    fn wait_all (iter: impl IntoIterator<Item = Self>) -> Result<alloc::vec::Vec<Self::Result>> {
+        let (inner, f) : (Vec<_>, Vec<_>) = iter.into_iter().map(|x| (x.inner, x.f)).unzip();
+        let mut base = <E as Event>::wait_all(inner)?;
+
+        #[cfg(feature = "async")]
+        f.into_iter().zip(base.iter_mut()).for_each(|(f, x)| f.unwrap()(x));
+        #[cfg(not(feature = "async"))]
+        f.into_iter().zip(base.iter_mut()).for_each(|(f, x)| f(&mut x));
+
+        Ok(base)
     }
 }
 

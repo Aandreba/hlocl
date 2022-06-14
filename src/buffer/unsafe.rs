@@ -1,8 +1,8 @@
-use core::{ptr::{NonNull, addr_of}, marker::PhantomData, mem::{MaybeUninit, ManuallyDrop}, ops::{RangeBounds, Bound}};
+use core::{ptr::{NonNull, addr_of}, marker::PhantomData, mem::{MaybeUninit, ManuallyDrop}, ops::{RangeBounds, Bound}, fmt::Debug};
 use alloc::{vec::{Vec, IntoIter}, boxed::Box, format};
 use cl_sys::{cl_mem, clReleaseMemObject, clCreateBuffer, cl_mem_info, clGetMemObjectInfo, CL_MEM_FLAGS, CL_MEM_SIZE, c_void, CL_MEM_HOST_PTR, CL_MEM_MAP_COUNT, CL_MEM_REFERENCE_COUNT, CL_MEM_CONTEXT, CL_MEM_ASSOCIATED_MEMOBJECT, CL_MEM_OFFSET, clCreateSubBuffer, CL_BUFFER_CREATE_TYPE_REGION};
 use crate::{prelude::{Result, Context, Error, CommandQueue, EMPTY}, event::{ReadBuffer, BaseEvent, WriteBuffer, Event, CopyBuffer, various::{Then, Map}}};
-use super::{MemFlags};
+use super::{MemFlag};
 
 #[repr(transparent)]
 pub struct MemBuffer<T: 'static + Copy + Unpin> (pub(crate) cl_mem, pub(super) PhantomData<T>); 
@@ -10,28 +10,28 @@ pub struct MemBuffer<T: 'static + Copy + Unpin> (pub(crate) cl_mem, pub(super) P
 impl<T: Copy + Unpin> MemBuffer<T> {
     #[cfg(feature = "def")]
     #[inline(always)]
-    pub unsafe fn uninit (size: usize, flags: impl Into<Option<MemFlags>>) -> Result<Self> {
+    pub unsafe fn uninit (size: usize, flags: MemFlag) -> Result<Self> {
         Self::uninit_with_context(Context::default(), size, flags)
     }
 
     #[cfg(feature = "def")]
     #[inline(always)]
-    pub fn new (src: &[T], flags: impl Into<Option<MemFlags>>) -> Result<Self> {
+    pub fn new (src: &[T], flags: MemFlag) -> Result<Self> {
         Self::with_context(Context::default(), flags, src)
     }
 
     #[inline(always)]
-    pub unsafe fn uninit_with_context (ctx: &Context, size: usize, flags: impl Into<Option<MemFlags>>) -> Result<Self> {
+    pub unsafe fn uninit_with_context (ctx: &Context, size: usize, flags: impl Into<Option<MemFlag>>) -> Result<Self> {
         Self::with_host_ptr(ctx, size, flags.into().unwrap_or_default(), None)
     }
 
     #[inline(always)]
-    pub fn with_context (ctx: &Context, flags: impl Into<Option<MemFlags>>, src: &[T]) -> Result<Self> {
-        let flags = flags.into().unwrap_or_default() | MemFlags::COPY_HOST_PTR;
+    pub fn with_context (ctx: &Context, flags: MemFlag, src: &[T]) -> Result<Self> {
+        let flags = flags | MemFlag::COPY_HOST_PTR;
         unsafe { Self::with_host_ptr(ctx, src.len(), flags, NonNull::new(src.as_ptr() as *mut _)) }
     }
 
-    pub unsafe fn with_host_ptr (ctx: &Context, size: usize, flags: MemFlags, host_ptr: Option<NonNull<T>>) -> Result<Self> {
+    pub unsafe fn with_host_ptr (ctx: &Context, size: usize, flags: MemFlag, host_ptr: Option<NonNull<T>>) -> Result<Self> {
         let host_ptr = match host_ptr {
             Some(x) => x.as_ptr().cast(),
             None => core::ptr::null_mut()
@@ -74,7 +74,7 @@ impl<T: Copy + Unpin> MemBuffer<T> {
 
     /// Returns the flags argument value specified when memobj is created
     #[inline(always)]
-    pub fn flags (&self) -> Result<MemFlags> {
+    pub fn flags (&self) -> Result<MemFlag> {
         self.get_info(CL_MEM_FLAGS)
     }
 
@@ -134,13 +134,13 @@ impl<T: Copy + Unpin> MemBuffer<T> {
 
     #[cfg(feature = "def")]
     #[inline(always)]
-    pub fn to_vec (&self) -> Result<Map<Vec<T>, ReadBuffer<'_, 'static>, impl FnOnce(()) -> Vec<T>>> {
-        self.read(.., EMPTY)
+    pub fn to_vec (&self, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Map<Vec<T>, ReadBuffer<'_, 'static>, impl FnOnce(()) -> Vec<T>>> {
+        self.to_vec_with_queue(CommandQueue::default(), wait)
     }
 
     #[inline(always)]
-    pub fn to_vec_with_queue (&self, queue: &CommandQueue) -> Result<Map<Vec<T>, ReadBuffer<'_, 'static>, impl FnOnce(()) -> Vec<T>>> {
-        self.read_with_queue(queue, .., EMPTY)
+    pub fn to_vec_with_queue (&self, queue: &CommandQueue, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Map<Vec<T>, ReadBuffer<'_, 'static>, impl FnOnce(()) -> Vec<T>>> {
+        self.read_with_queue(queue, .., wait)
     }
 
     #[cfg(feature = "def")]
@@ -173,7 +173,7 @@ impl<T: Copy + Unpin> MemBuffer<T> {
     #[inline(always)]
     pub fn slice (&self, range: impl RangeBounds<usize>) -> Result<Self> {
         let (offset, len) = self.get_offset_len(&range)?;
-        let flags = self.flags()? & (MemFlags::READ_WRITE | MemFlags::READ_ONLY | MemFlags::WRITE_ONLY);
+        let flags = self.flags()? & (MemFlag::READ_WRITE | MemFlag::READ_ONLY | MemFlag::WRITE_ONLY);
         let offset = offset.checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
         let len = len.checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
 
@@ -282,25 +282,25 @@ impl<T: Copy + Unpin> MemBuffer<T> {
 
     #[cfg(feature = "def")]
     #[inline(always)]
-    pub fn iter (&self) -> Result<IntoIter<T>> {
-        self.iter_with_queue(CommandQueue::default())
+    pub fn iter (&self, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<IntoIter<T>> {
+        self.iter_with_queue(CommandQueue::default(), wait)
     }
 
     #[inline(always)]
-    pub fn iter_with_queue (&self, queue: &CommandQueue) -> Result<IntoIter<T>> {
-        let vec = self.to_vec_with_queue(queue)?;
+    pub fn iter_with_queue (&self, queue: &CommandQueue, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<IntoIter<T>> {
+        let vec = self.to_vec_with_queue(queue, wait)?;
         let vec = vec.wait()?;
         Ok(vec.into_iter())
     }
 
     #[cfg(feature = "def")]
     #[inline(always)]
-    pub fn into_iter (self) -> Result<IntoIter<T>> {
-        self.iter()
+    pub fn into_iter (self, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<IntoIter<T>> {
+        self.iter(wait)
     } 
     #[inline(always)]
-    pub fn into_iter_with_queue<'a> (self, queue: &'a CommandQueue) -> Result<IntoIter<T>> {
-        self.iter_with_queue(queue)
+    pub fn into_iter_with_queue (self, queue: &CommandQueue, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<IntoIter<T>> {
+        self.iter_with_queue(queue, wait)
     }
 
     #[inline]
@@ -347,6 +347,16 @@ impl<T: Copy + Unpin> MemBuffer<T> {
         };
 
         Ok((offset, len))
+    }
+}
+
+#[cfg(feature = "def")]
+impl<T: Copy + Unpin + Debug> Debug for MemBuffer<T> {
+    #[inline(always)]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let vec = self.to_vec(EMPTY).map_err(|_| core::fmt::Error)?;
+        let vec = vec.wait().map_err(|_| core::fmt::Error)?;
+        Debug::fmt(&vec, f)
     }
 }
 
