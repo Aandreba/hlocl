@@ -1,6 +1,6 @@
 use core::{mem::MaybeUninit, num::NonZeroUsize};
 use alloc::{string::{String}, vec::Vec, format};
-use cl_sys::{cl_program, clReleaseProgram, clCreateProgramWithSource, clRetainProgram, clBuildProgram, cl_program_info, clGetProgramInfo, CL_PROGRAM_REFERENCE_COUNT, CL_PROGRAM_CONTEXT, CL_PROGRAM_NUM_DEVICES, CL_PROGRAM_DEVICES, CL_PROGRAM_SOURCE, clGetProgramBuildInfo, CL_PROGRAM_BUILD_LOG};
+use opencl_sys::{cl_program, clReleaseProgram, clCreateProgramWithSource, clRetainProgram, clBuildProgram, cl_program_info, clGetProgramInfo, CL_PROGRAM_REFERENCE_COUNT, CL_PROGRAM_CONTEXT, CL_PROGRAM_NUM_DEVICES, CL_PROGRAM_DEVICES, CL_PROGRAM_SOURCE, clGetProgramBuildInfo, CL_PROGRAM_BUILD_LOG};
 use crate::{prelude::{Result, Error, Context, Device}};
 
 /// OpenCL program

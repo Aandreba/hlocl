@@ -1,3 +1,5 @@
+#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
+
 #define MUL 0x5DEECE66D
 #define ADDEND 0xB
 
@@ -5,15 +7,12 @@
 #define MASK32() ((1l << 24) - 1)
 #define MASK64() ((1l << 48) - 1)
 
-void kernel rand_byte (const ulong n, volatile __global atomic_ulong *seed, __global uchar *out) {
+void kernel rand_byte (const ulong n, __global ulong *seed, __global uchar *out) {
     for (ulong id = get_global_id(0); id<n; id += get_global_size(0)) {
-        ulong oldseed, nextseed;
-        
-        do {
-            oldseed = atomic_load(seed);
-            nextseed = (oldseed * MUL + ADDEND) & ((1l << 6) - 1);
-        } while (!atomic_compare_exchange_strong(seed, &oldseed, nextseed));
+        ulong prev = seed[id];
+        ulong next = (prev * MUL + ADDEND) & ((1l << 6) - 1);
 
-        out[id] = (uchar) (nextseed >> (48 - 8));
+        seed[id] = next;
+        out[id] = (uchar) (next >> (48 - 8));
     }
 }

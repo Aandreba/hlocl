@@ -1,6 +1,6 @@
 use core::{marker::PhantomData};
 use alloc::{vec::Vec, format};
-use cl_sys::{cl_event, clEnqueueWriteBuffer, clEnqueueCopyBuffer, clEnqueueReadBuffer};
+use opencl_sys::{cl_event, clEnqueueWriteBuffer, clEnqueueCopyBuffer, clEnqueueReadBuffer};
 use crate::{prelude::{Result, Error, CommandQueue}, buffer::{MemBuffer}};
 use super::{BaseEvent, Event};
 
@@ -105,7 +105,7 @@ impl<'a, 'b> WriteBuffer<'a, 'b> {
         let len = src.len().checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
 
         let mut event : cl_event = core::ptr::null_mut();
-        let err = clEnqueueWriteBuffer(queue.0, dst.0, cl_sys::cl_bool::from(blocking), offset, len, src.as_ptr().cast(), wait_len, wait, &mut event);
+        let err = clEnqueueWriteBuffer(queue.0, dst.0, opencl_sys::cl_bool::from(blocking), offset, len, src.as_ptr().cast(), wait_len, wait, &mut event);
 
         if err == 0 {
             let inner = BaseEvent::new(event)?;
@@ -193,7 +193,7 @@ impl<'a, 'b> ReadBuffer<'a, 'b> {
         let err = unsafe {
             let offset = offset.checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
             let len = dst.len().checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
-            clEnqueueReadBuffer(queue.0, src.0, cl_sys::cl_bool::from(blocking), offset, len, dst.as_mut_ptr().cast(), wait_len, wait, &mut event)
+            clEnqueueReadBuffer(queue.0, src.0, opencl_sys::cl_bool::from(blocking), offset, len, dst.as_mut_ptr().cast(), wait_len, wait, &mut event)
         };
 
         if err == 0 {

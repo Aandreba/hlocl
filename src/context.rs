@@ -1,7 +1,7 @@
 use core::mem::MaybeUninit;
 use alloc::format;
 use alloc::vec::{Vec};
-use cl_sys::{cl_context, cl_context_properties, CL_CONTEXT_PLATFORM, CL_CONTEXT_INTEROP_USER_SYNC, clCreateContext, clReleaseContext, clRetainContext, cl_context_info, clGetContextInfo, CL_CONTEXT_REFERENCE_COUNT, CL_CONTEXT_NUM_DEVICES, CL_CONTEXT_DEVICES};
+use opencl_sys::{cl_context, cl_context_properties, CL_CONTEXT_PLATFORM, CL_CONTEXT_INTEROP_USER_SYNC, clCreateContext, clReleaseContext, clRetainContext, cl_context_info, clGetContextInfo, CL_CONTEXT_REFERENCE_COUNT, CL_CONTEXT_NUM_DEVICES, CL_CONTEXT_DEVICES};
 use crate::error::Error;
 use crate::prelude::{Platform, Device, Result};
 

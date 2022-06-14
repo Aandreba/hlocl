@@ -1,5 +1,5 @@
 use alloc::format;
-use cl_sys::{clCreateUserEvent, clSetUserEventStatus, CL_COMPLETE};
+use opencl_sys::{clCreateUserEvent, clSetUserEventStatus, CL_COMPLETE};
 use crate::prelude::{Result, Error, Context};
 use super::{BaseEvent, Event};
 

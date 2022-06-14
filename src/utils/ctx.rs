@@ -4,7 +4,7 @@ use crate::{prelude::{Context, Device, Result, CommandQueue}, context::ContextPr
 
 #[cfg(feature = "def")]
 lazy_static! {
-    static ref MANAGER: ContextManager = ContextManager::new(Device::all(), None, None).unwrap();
+    static ref MANAGER: ContextManager = ContextManager::new(Device::all(), None, None).expect("Error initializing ContextManager");
 }
 
 pub struct ContextManager {
@@ -33,7 +33,7 @@ impl ContextManager {
     #[cfg(feature = "def")]
     #[inline(always)]
     pub fn default () -> &'static ContextManager {
-        &MANAGER
+        once_cell::sync::Lazy::force(&MANAGER)
     }
 
     #[inline(always)]

@@ -25,7 +25,10 @@ macro_rules! tri_panic {
     ($i:expr) => {
         match $i {
             0 => {},
-            _ => panic!("{}", $crate::error::Error::from($i))
+            _ => {
+                std::eprintln!("{}", $crate::error::Error::from($i));
+                panic!("{}", $crate::error::Error::from($i));
+            }
         }
     };
 }
@@ -287,6 +290,7 @@ pub mod queue;
 pub mod context;
 pub mod program;
 pub mod buffer;
+//pub mod svm;
 pub mod event;
 pub mod kernel;
 

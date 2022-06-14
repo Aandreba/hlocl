@@ -1,6 +1,6 @@
-use core::{ptr::{NonNull, addr_of}, marker::PhantomData, mem::{MaybeUninit, ManuallyDrop}, ops::{RangeBounds, Bound}, fmt::Debug};
+use core::{ptr::{NonNull, addr_of}, marker::PhantomData, mem::{MaybeUninit, ManuallyDrop}, ops::{RangeBounds, Bound}, fmt::Debug, ffi::c_void};
 use alloc::{vec::{Vec, IntoIter}, boxed::Box, format};
-use cl_sys::{cl_mem, clReleaseMemObject, clCreateBuffer, cl_mem_info, clGetMemObjectInfo, CL_MEM_FLAGS, CL_MEM_SIZE, c_void, CL_MEM_HOST_PTR, CL_MEM_MAP_COUNT, CL_MEM_REFERENCE_COUNT, CL_MEM_CONTEXT, CL_MEM_ASSOCIATED_MEMOBJECT, CL_MEM_OFFSET, clCreateSubBuffer, CL_BUFFER_CREATE_TYPE_REGION};
+use opencl_sys::{cl_mem, clReleaseMemObject, clCreateBuffer, cl_mem_info, clGetMemObjectInfo, CL_MEM_FLAGS, CL_MEM_SIZE, CL_MEM_HOST_PTR, CL_MEM_MAP_COUNT, CL_MEM_REFERENCE_COUNT, CL_MEM_CONTEXT, CL_MEM_ASSOCIATED_MEMOBJECT, CL_MEM_OFFSET, clCreateSubBuffer, CL_BUFFER_CREATE_TYPE_REGION};
 use crate::{prelude::{Result, Context, Error, CommandQueue, EMPTY}, event::{ReadBuffer, BaseEvent, WriteBuffer, Event, CopyBuffer, various::{Then, Map}}};
 use super::{MemFlag};
 
@@ -21,8 +21,8 @@ impl<T: Copy + Unpin> MemBuffer<T> {
     }
 
     #[inline(always)]
-    pub unsafe fn uninit_with_context (ctx: &Context, size: usize, flags: impl Into<Option<MemFlag>>) -> Result<Self> {
-        Self::with_host_ptr(ctx, size, flags.into().unwrap_or_default(), None)
+    pub unsafe fn uninit_with_context (ctx: &Context, size: usize, flags: MemFlag) -> Result<Self> {
+        Self::with_host_ptr(ctx, size, flags, None)
     }
 
     #[inline(always)]
@@ -177,7 +177,7 @@ impl<T: Copy + Unpin> MemBuffer<T> {
         let offset = offset.checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
         let len = len.checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
 
-        let region = cl_sys::cl_buffer_region {
+        let region = opencl_sys::cl_buffer_region {
             origin: offset,
             size: len
         };

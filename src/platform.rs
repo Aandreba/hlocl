@@ -1,6 +1,6 @@
 use core::{fmt::Debug, mem::MaybeUninit};
 use alloc::{vec::Vec, string::{String}};
-use cl_sys::{cl_platform_id, clGetPlatformInfo, cl_platform_info, c_uchar, CL_PLATFORM_PROFILE, CL_PLATFORM_VERSION, CL_PLATFORM_NAME, CL_PLATFORM_VENDOR, CL_PLATFORM_EXTENSIONS, CL_PLATFORM_HOST_TIMER_RESOLUTION, cl_uchar, clGetPlatformIDs};
+use opencl_sys::{cl_platform_id, clGetPlatformInfo, cl_platform_info, CL_PLATFORM_PROFILE, CL_PLATFORM_VERSION, CL_PLATFORM_NAME, CL_PLATFORM_VENDOR, CL_PLATFORM_EXTENSIONS, CL_PLATFORM_HOST_TIMER_RESOLUTION, cl_uchar, clGetPlatformIDs};
 use crate::{prelude::{Result, Error}};
 
 lazy_static! {
@@ -73,7 +73,7 @@ impl Platform {
             let err = clGetPlatformInfo(self.0, ty, 0, core::ptr::null_mut(), &mut len);
             Self::parse_error(err)?;
 
-            let mut result = Vec::<c_uchar>::with_capacity(len);
+            let mut result = Vec::<u8>::with_capacity(len);
             let err = clGetPlatformInfo(self.0, ty, len * core::mem::size_of::<cl_uchar>(), result.as_mut_ptr().cast(), core::ptr::null_mut());
             Self::parse_error(err)?;
             

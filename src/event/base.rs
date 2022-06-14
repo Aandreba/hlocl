@@ -1,14 +1,16 @@
 use core::{mem::MaybeUninit, ptr::addr_of, hash::Hash};
 use alloc::{format, vec::Vec};
-use cl_sys::{cl_event, cl_event_info, clReleaseEvent, clGetEventInfo, CL_EVENT_COMMAND_QUEUE, CL_EVENT_COMMAND_TYPE, CL_EVENT_COMMAND_EXECUTION_STATUS, clWaitForEvents, clRetainEvent};
+use opencl_sys::{cl_event, cl_event_info, clReleaseEvent, clGetEventInfo, CL_EVENT_COMMAND_QUEUE, CL_EVENT_COMMAND_TYPE, CL_EVENT_COMMAND_EXECUTION_STATUS, clWaitForEvents, clRetainEvent};
 use crate::prelude::{Result, Error};
 use super::Event;
+#[cfg(feature = "async")]
+use core::ffi::c_void;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "async")] {
         use alloc::sync::Arc;
         use futures::task::AtomicWaker;
-        use cl_sys::clSetEventCallback;
+        use opencl_sys::clSetEventCallback;
 
         pub struct BaseEvent (pub(crate) cl_event, Arc<AtomicWaker>);
     } else {
@@ -31,7 +33,7 @@ impl BaseEvent {
             Arc::increment_strong_count(ptr);
             data = Arc::from_raw(ptr);
 
-            let err = clSetEventCallback(id, cl_sys::CL_COMPLETE, Some(notify), ptr as *mut _);
+            let err = clSetEventCallback(id, opencl_sys::CL_COMPLETE, Some(notify), ptr as *mut _);
             if err != 0 {
                 Arc::decrement_strong_count(ptr);
 
@@ -253,7 +255,7 @@ unsafe impl Sync for BaseEvent {}
 
 #[cfg(feature = "async")]
 #[no_mangle]
-extern "C" fn notify (_event: cl_event, _status: cl_sys::cl_int, data: *mut cl_sys::c_void) {
+extern "C" fn notify (_event: cl_event, _status: opencl_sys::cl_int, data: *mut c_void) {
     let data = unsafe { Arc::from_raw(data as *const AtomicWaker) };
     data.wake()
 }
