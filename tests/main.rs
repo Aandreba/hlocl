@@ -1,11 +1,11 @@
-use opencl::{prelude::*, buffer::MemFlag};
+use opencl::{prelude::*, buffer::{MemFlag, FastRng}};
 
 #[test]
 fn vec () -> Result<()> {
-    let buff = MemBuffer::<f32>::random(10, MemFlag::default())?;
-    let ser = serde_json::to_string(&buff).unwrap();
-    let de = serde_json::from_str::<MemBuffer<f64>>(&ser).unwrap();
+    let rng = FastRng::with_context(Context::default())?;
+    let buff = rng.random_u8_with_queue(CommandQueue::default(), 10, MemFlag::default(), EMPTY)?;
+    let buff = buff.wait()?;
 
-    println!("{buff:?} -> {ser} -> {de:?}");
+    println!("{buff:?}");
     Ok(())
 }

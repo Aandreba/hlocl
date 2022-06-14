@@ -1,30 +1,19 @@
-#define BITS 32
+#define MUL 0x5DEECE66D
+#define ADDEND 0xB
 
-#if BITS == 8
-typedef uchar integer;
-#elif BITS == 16
-typedef ushort integer
-#elif BITS == 32
-typedef uint integer;
-typedef float floating;
-#else
-typedef ulong integer;
-typedef double floating;
-#endif
+#define MASK16() ((1l << 12) - 1)
+#define MASK32() ((1l << 24) - 1)
+#define MASK64() ((1l << 48) - 1)
 
-#define MUL 0x5DEECE66Dl
-#define ADDEND 0xBl
-#define MASK ((1l << 48) - 1)
-
-void kernel rand_int (const ulong n, volatile __global atomic_ulong *seed, __global integer *out) {
+void kernel rand_byte (const ulong n, volatile __global atomic_ulong *seed, __global uchar *out) {
     for (ulong id = get_global_id(0); id<n; id += get_global_size(0)) {
         ulong oldseed, nextseed;
         
         do {
             oldseed = atomic_load(seed);
-            nextseed = (oldseed * MUL + ADDEND) & MASK;
+            nextseed = (oldseed * MUL + ADDEND) & ((1l << 6) - 1);
         } while (!atomic_compare_exchange_strong(seed, &oldseed, nextseed));
 
-        out[id] = (integer)(nextseed >> (48 - BITS));
+        out[id] = (uchar) (nextseed >> (48 - 8));
     }
 }
