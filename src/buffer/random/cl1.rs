@@ -1,5 +1,6 @@
 #[cfg(test)]
 extern crate std;
+include!("macro.rs");
 
 use core::{sync::atomic::{AtomicU64, Ordering}};
 use std::{time::{SystemTime}};
@@ -19,12 +20,17 @@ pub struct FastRng {
     seeds: MemBuffer<u64>,
     program: Program,
     rand_byte: Mutex<Kernel>,
+    rand_short: Mutex<Kernel>,
+    rand_int: Mutex<Kernel>,
+    rand_long: Mutex<Kernel>,
+    rand_float: Mutex<Kernel>,
+    rand_double: Mutex<Kernel>,
     wait_for: Mutex<Option<BaseEvent>>
 }
 
 impl FastRng {
     #[inline(always)]
-    pub fn with_context (ctx: &Context, len: usize) -> Result<Self> {
+    pub fn with_context (ctx: &Context, len: usize) -> Result<Self> {        
         let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_nanos() as u64;
         
         let mut seeds = Vec::with_capacity(len);
@@ -42,12 +48,23 @@ impl FastRng {
     pub fn with_seeds_context (ctx: &Context, seeds: &[u64]) -> Result<Self> {
         let seeds = MemBuffer::with_context(ctx, MemFlag::default(), seeds)?;
         let program = Program::from_source_with_context(ctx, include_str!("../../kernels/fast_rand_cl1.ocl"))?;
+
         let rand_byte = unsafe { Kernel::new_unchecked(&program, "rand_byte")? };
+        let rand_short = unsafe { Kernel::new_unchecked(&program, "rand_short")? };
+        let rand_int = unsafe { Kernel::new_unchecked(&program, "rand_int")? };
+        let rand_long = unsafe { Kernel::new_unchecked(&program, "rand_long")? };
+        let rand_float = unsafe { Kernel::new_unchecked(&program, "rand_float")? };
+        let rand_double = unsafe { Kernel::new_unchecked(&program, "rand_double")? };
         
         Ok(Self {
             seeds,
             program,
             rand_byte: Mutex::new(rand_byte),
+            rand_short: Mutex::new(rand_short),
+            rand_int: Mutex::new(rand_int),
+            rand_long: Mutex::new(rand_long),
+            rand_float: Mutex::new(rand_float),
+            rand_double: Mutex::new(rand_double),
             wait_for: Mutex::new(None)
         })
     }
@@ -57,57 +74,13 @@ impl FastRng {
         self.program.context()
     }
 
-    pub fn random_u8_with_queue (&self, queue: &CommandQueue, len: usize, flags: MemFlag, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<MemBuffer<u8>, BaseEvent>> {
-        assert_ne!(len, 0);
-        
-        let seeds_len = self.seeds.len()?;
-        let max_wgs = queue.device()?.max_work_group_size()?.get();
-        let wgs = seeds_len.min(max_wgs);
-
-        let div = len / seeds_len;
-        let rem = len % seeds_len;
-
-        let mut this_wait = self.wait_for.lock();
-        let wait_for = this_wait.iter()
-            .cloned()
-            .chain(wait.into_iter().map(|x| x.as_ref().clone()))
-            .collect::<Vec<_>>();
-
-        let out = unsafe { MemBuffer::uninit_with_context(&self.context()?, len, flags)? };
-        let mut kernel = self.rand_byte.lock();
-
-        let mut wait;
-        if div > 0 {
-            wait = self.inner_random_u8(queue, &mut kernel, &out, 0, len, wgs, wait_for)?;
-            for i in 1..div {
-                wait = self.inner_random_u8(queue, &mut kernel, &out, i * seeds_len, len, wgs, [wait])?;
-            }
-
-            if rem > 0 {
-                wait = self.inner_random_u8(queue, &mut kernel, &out, div * seeds_len, rem, wgs, [wait])?;
-            }
-        } else {
-            wait = self.inner_random_u8(queue, &mut kernel, &out, div * seeds_len, rem, wgs, wait_for)?;
-        }
-
-        drop(kernel);
-        *this_wait = Some(wait.clone());
-        drop(this_wait);
-        Ok(wait.swap(out))
-    }
-
-    pub fn random_i8_with_queue (&self, queue: &CommandQueue, len: usize, flags: MemFlag, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<impl Event<Output = MemBuffer<i8>>> {
-        let evt = self.random_u8_with_queue(queue, len, flags, wait)?;
-        todo!()
-    }
-
-    #[inline]
-    fn inner_random_u8 (&self, queue: &CommandQueue, kernel: &mut Kernel, out: &MemBuffer<u8>, offset: usize, len: usize, wgs: usize, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<BaseEvent> {
-        kernel.set_arg(0, len)?;
-        kernel.set_arg(1, offset)?;
-        kernel.set_mem_arg(2, &self.seeds)?;
-        kernel.set_mem_arg(3, out)?;
-        kernel.enqueue_with_queue(queue, &[wgs, 1, 1], None, wait)
+    impl_random! {
+        rand_byte = u8 as random_u8_with_queue & i8 as random_i8_with_queue => inner_random_u8,
+        rand_short = u16 as random_u16_with_queue & i16 as random_i16_with_queue => inner_random_u16,
+        rand_int = u32 as random_u32_with_queue & i32 as random_i32_with_queue => inner_random_u32,
+        rand_long = u64 as random_u64_with_queue & i64 as random_i64_with_queue => inner_random_u64,
+        rand_float = f32 as random_f32_with_queue => inner_random_f32,
+        rand_double = f64 as random_f64_with_queue => inner_random_f64
     }
 
     #[inline(always)]
@@ -126,99 +99,4 @@ impl FastRng {
 #[inline(always)]
 fn generate_random_u64 (seed: u64) -> u64 {
     (seed.wrapping_mul(FAST_MUL).wrapping_add(ADDEND)) & MASK
-}
-
-macro_rules! impl_random {
-    ($($kernel:ident = $s:ident as $sf:ident & $u:ident as $uf:ident => $fun:ident),+) => {
-        $(
-            pub fn $uf (&self, queue: &CommandQueue, len: usize, flags: MemFlag, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<MemBuffer<$u>, BaseEvent>> {
-                assert_ne!(len, 0);
-                
-                let seeds_len = self.seeds.len()?;
-                let max_wgs = queue.device()?.max_work_group_size()?.get();
-                let wgs = seeds_len.min(max_wgs);
-        
-                let div = len / seeds_len;
-                let rem = len % seeds_len;
-        
-                let mut this_wait = self.wait_for.lock();
-                let wait_for = this_wait.iter()
-                    .cloned()
-                    .chain(wait.into_iter().map(|x| x.as_ref().clone()))
-                    .collect::<Vec<_>>();
-        
-                let out = unsafe { MemBuffer::uninit_with_context(&self.context()?, len, flags)? };
-                let mut kernel = self.$kernel.lock();
-        
-                let mut wait;
-                if div > 0 {
-                    wait = self.$fun(queue, &mut kernel, &out, 0, len, wgs, wait_for)?;
-                    for i in 1..div {
-                        wait = self.$fun(queue, &mut kernel, &out, i * seeds_len, len, wgs, [wait])?;
-                    }
-        
-                    if rem > 0 {
-                        wait = self.$fun(queue, &mut kernel, &out, div * seeds_len, rem, wgs, [wait])?;
-                    }
-                } else {
-                    wait = self.$fun(queue, &mut kernel, &out, div * seeds_len, rem, wgs, wait_for)?;
-                }
-        
-                drop(kernel);
-                *this_wait = Some(wait.clone());
-                drop(this_wait);
-                Ok(wait.swap(out))
-            }
-
-            pub fn $sf (&self, queue: &CommandQueue, len: usize, flags: MemFlag, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<MemBuffer<$s>, BaseEvent>> {
-                assert_ne!(len, 0);
-                
-                let seeds_len = self.seeds.len()?;
-                let max_wgs = queue.device()?.max_work_group_size()?.get();
-                let wgs = seeds_len.min(max_wgs);
-        
-                let div = len / seeds_len;
-                let rem = len % seeds_len;
-        
-                let mut this_wait = self.wait_for.lock();
-                let wait_for = this_wait.iter()
-                    .cloned()
-                    .chain(wait.into_iter().map(|x| x.as_ref().clone()))
-                    .collect::<Vec<_>>();
-        
-                let out = unsafe { MemBuffer::<$u>::uninit_with_context(&self.context()?, len, flags)? };
-                let mut kernel = self.$kernel.lock();
-        
-                let mut wait;
-                if div > 0 {
-                    wait = self.$fun(queue, &mut kernel, &out, 0, len, wgs, wait_for)?;
-                    for i in 1..div {
-                        wait = self.$fun(queue, &mut kernel, &out, i * seeds_len, len, wgs, [wait])?;
-                    }
-        
-                    if rem > 0 {
-                        wait = self.$fun(queue, &mut kernel, &out, div * seeds_len, rem, wgs, [wait])?;
-                    }
-                } else {
-                    wait = self.$fun(queue, &mut kernel, &out, div * seeds_len, rem, wgs, wait_for)?;
-                }
-        
-                drop(kernel);
-                *this_wait = Some(wait.clone());
-                drop(this_wait);
-
-                let out = unsafe { out.transmute() };
-                Ok(wait.swap(out))
-            }
-
-            #[inline]
-            fn $fun (&self, queue: &CommandQueue, kernel: &mut Kernel, out: &MemBuffer<$u>, offset: usize, len: usize, wgs: usize, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<BaseEvent> {
-                kernel.set_arg(0, len)?;
-                kernel.set_arg(1, offset)?;
-                kernel.set_mem_arg(2, &self.seeds)?;
-                kernel.set_mem_arg(3, out)?;
-                kernel.enqueue_with_queue(queue, &[wgs, 1, 1], None, wait)
-            }
-        )*
-    };
 }

@@ -1,5 +1,3 @@
-#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
-
 #define MUL 0x5DEECE66D
 #define ADDEND 0xB
 #define MASK ((1l << 48) - 1)
@@ -10,6 +8,61 @@ void kernel rand_byte (const ulong n, const ulong offset, __global ulong *seed, 
         ulong next = (prev * MUL + ADDEND) & MASK;
 
         seed[id] = next;
-        out[id] = (uchar) (next >> (48 - 8));
+        out[id + offset] = (uchar) (next >> (48 - 8));
+    }
+}
+
+void kernel rand_short (const ulong n, const ulong offset, __global ulong *seed, __global ushort *out) {
+    for (ulong id = get_global_id(0); id<n; id += get_global_size(0)) {
+        ulong prev = seed[id];
+        ulong next = (prev * MUL + ADDEND) & MASK;
+
+        seed[id] = next;
+        out[id + offset] = (ushort) (next >> (48 - 16));
+    }
+}
+
+void kernel rand_int (const ulong n, const ulong offset, __global ulong *seed, __global uint *out) {
+    for (ulong id = get_global_id(0); id<n; id += get_global_size(0)) {
+        ulong prev = seed[id];
+        ulong next = (prev * MUL + ADDEND) & MASK;
+
+        seed[id] = next;
+        out[id + offset] = (uint) (next >> (48 - 32));
+    }
+}
+
+void kernel rand_long (const ulong n, const ulong offset, __global ulong *seed, __global ulong *out) {
+    for (ulong id = get_global_id(0); id<n; id += get_global_size(0)) {
+        ulong prev = seed[id];
+        ulong first = (prev * MUL + ADDEND) & MASK;
+        ulong last = (first * MUL + ADDEND) & MASK;
+
+        seed[id] = last;
+        out[id + offset] = ((first >> (48 - 32)) << 32) + (last >> (48 - 32));
+    }
+}
+
+void kernel rand_float (const ulong n, const ulong offset, __global ulong *seed, __global float *out) {
+    for (ulong id = get_global_id(0); id<n; id += get_global_size(0)) {
+        ulong prev = seed[id];
+        ulong next = (prev * MUL + ADDEND) & MASK;
+
+        seed[id] = next;
+        out[id + offset] = (float)(next >> (48 - 24)) / (float)(1 << 24);
+    }
+}
+
+void kernel rand_double (const ulong n, const ulong offset, __global ulong *seed, __global double *out) {
+    for (ulong id = get_global_id(0); id<n; id += get_global_size(0)) {
+        ulong prev = seed[id];
+        ulong first = (prev * MUL + ADDEND) & MASK;
+        ulong last = (first * MUL + ADDEND) & MASK;
+
+        ulong result = ((first >> (48 - 26)) << 27);
+        result += last >> (48 - 27);
+
+        seed[id] = last;
+        out[id + offset] = (double)(result) / (double)(1 << 53);
     }
 }
