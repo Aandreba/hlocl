@@ -1,7 +1,7 @@
 flat_mod!(flags);
 
 use core::{ptr::NonNull, ops::{Deref, DerefMut}, fmt::Debug};
-use opencl_sys::{clSVMAllocARM, clSVMFreeARM};
+use opencl_sys::{clSVMAlloc, clSVMFree};
 use crate::prelude::{Context};
 
 pub struct SvmBuffer<T: Copy + Unpin> {
@@ -36,7 +36,7 @@ impl<T: Copy + Unpin> SvmBuffer<T> {
     pub unsafe fn alloc_with_context (ctx: &Context, len: usize, flags: SvmFlag) -> Option<Self> {
         let size = len.checked_mul(core::mem::size_of::<T>()).expect("Buffer too large");
         let align = u32::try_from(core::mem::align_of::<T>()).unwrap();
-        let ptr = clSVMAllocARM(ctx.0, flags.bits(), size, align);
+        let ptr = clSVMAlloc(ctx.0, flags.bits(), size, align);
 
         if let Some(ptr) = NonNull::new(ptr) {
             return Some(Self {
@@ -77,7 +77,7 @@ impl<T: Copy + Unpin> Drop for SvmBuffer<T> {
     #[inline(always)]
     fn drop(&mut self) {
         unsafe {
-            clSVMFreeARM(self.ctx.0, self.inner.as_ptr().cast())
+            clSVMFree(self.ctx.0, self.inner.as_ptr().cast())
         }
     }
 }

@@ -26,7 +26,6 @@ macro_rules! tri_panic {
         match $i {
             0 => {},
             _ => {
-                std::eprintln!("{}", $crate::error::Error::from($i));
                 panic!("{}", $crate::error::Error::from($i));
             }
         }
@@ -290,9 +289,10 @@ pub mod queue;
 pub mod context;
 pub mod program;
 pub mod buffer;
-//pub mod svm;
 pub mod event;
 pub mod kernel;
-
 pub mod utils;
+
+#[cfg(feature = "cl2")]
+pub mod svm;
 //pub mod vec;

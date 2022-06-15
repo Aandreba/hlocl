@@ -4,7 +4,7 @@ extern crate std;
 use core::{sync::atomic::{AtomicU64, Ordering}};
 use std::{time::{SystemTime}};
 use alloc::vec::Vec;
-use parking_lot::{Mutex, RwLockReadGuard, lock_api::{RwLock}};
+use parking_lot::{Mutex};
 
 use crate::{prelude::*, kernel::Kernel, event::various::Swap};
 use super::MemFlag;
@@ -18,7 +18,7 @@ const MASK : u64 = (1 << 48) - 1;
 /// # Warning
 /// This RNG is not secure enough for cryptographic purposes
 pub struct FastRng {
-    seeds: RwLock<parking_lot::RawRwLock, MemBuffer<u64>>,
+    seeds: MemBuffer<u64>,
     program: Program,
     rand_byte: Mutex<Kernel>
 }
@@ -46,7 +46,7 @@ impl FastRng {
         let rand_byte = unsafe { Kernel::new_unchecked(&program, "rand_byte")? };
         
         Ok(Self {
-            seeds: RwLock::new(seeds),
+            seeds,
             program,
             rand_byte: Mutex::new(rand_byte)
         })
@@ -58,41 +58,7 @@ impl FastRng {
     }
 
     pub fn random_u8_with_queue (&self, queue: &CommandQueue, len: usize, flags: MemFlag, wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<Swap<MemBuffer<u8>, BaseEvent>> {
-        let mut seeds = self.seeds.read();
-        if len > seeds.len()? {
-            drop(seeds);
-            seeds = self.grow_seeds(queue, len)?;
-        }
-        
-        let mut kernel = self.rand_byte.lock();
-        let max_wgs = queue.device()?.max_work_item_dimensions()?.get() as usize;
-        let out = unsafe { MemBuffer::<u8>::uninit_with_context(&self.context()?, len, flags)? };
-        
-        kernel.set_arg(0, len as u64)?;
-        kernel.set_mem_arg(1, &seeds)?;
-        kernel.set_mem_arg(2, &out)?;
-        
-        let evt = kernel.enqueue_with_queue(queue, &[len.min(max_wgs), 1, 1], None, wait)?;
-        drop((kernel, seeds));
-        Ok(evt.swap(out))
-    }
-
-    fn grow_seeds (&self, queue: &CommandQueue, next_len: usize) -> Result<RwLockReadGuard<MemBuffer<u64>>> {
-        let mut seeds = self.seeds.write();
-        let prev_len = seeds.len()?;
-
-        let mut new_seeds = unsafe { MemBuffer::<u64>::uninit_with_context(&self.context()?, next_len, seeds.flags()?)? };
-        seeds.copy_to(0, &mut new_seeds, 0..prev_len, EMPTY)?.wait()?;
-
-        let mut prev_seed = seeds.get_with_queue(queue, prev_len - 1, EMPTY)?.wait()?;
-        for i in prev_len..next_len {
-            let seed = generate_random_u64(prev_seed);
-            seeds.set_with_queue(queue, i, ((Self::seed_uniquifier() ^ seed) ^ FAST_MUL) & MASK, EMPTY)?.wait()?;
-            prev_seed = seed;
-        }
-
-        let seeds = parking_lot::lock_api::RwLockWriteGuard::<'_, parking_lot::RawRwLock, MemBuffer<u64>>::downgrade(seeds);
-        Ok(seeds)
+        todo!()
     }
 
     #[inline(always)]
