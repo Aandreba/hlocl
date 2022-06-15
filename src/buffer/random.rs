@@ -6,7 +6,7 @@ use std::{time::{SystemTime}};
 use alloc::vec::Vec;
 use parking_lot::{Mutex};
 
-use crate::{prelude::*, kernel::Kernel, event::various::Swap};
+use crate::{prelude::*, kernel::Kernel, event::various::Swap, svm::{SvmBuffer, SvmFlag}};
 use super::MemFlag;
 
 static UNIQUIFIER : AtomicU64 = AtomicU64::new(8682522807148012);
@@ -18,7 +18,7 @@ const MASK : u64 = (1 << 48) - 1;
 /// # Warning
 /// This RNG is not secure enough for cryptographic purposes
 pub struct FastRng {
-    seeds: MemBuffer<u64>,
+    seed: SvmBuffer<u64>,
     program: Program,
     rand_byte: Mutex<Kernel>
 }
@@ -40,8 +40,8 @@ impl FastRng {
     }
 
     #[inline(always)]
-    pub fn with_seeds_context (ctx: &Context, seeds: &[u64]) -> Result<Self> {
-        let seeds = MemBuffer::with_context(ctx, MemFlag::default(), seeds)?;
+    pub fn with_seeds_context (ctx: &Context, seed: &[u64]) -> Result<Self> {
+        let seeds = SvmBuffer::with_context(ctx, seeds, SvmFlag::READ_WRITE | SvmFlag::FINE_GRAIN_BUFFER | SvmFlag::ATOMICS).unwrap();
         let program = Program::from_source_with_context(ctx, include_str!("../kernels/fast_rand.ocl"))?;
         let rand_byte = unsafe { Kernel::new_unchecked(&program, "rand_byte")? };
         
