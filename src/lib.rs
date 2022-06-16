@@ -1,7 +1,8 @@
 // Ensure we are using core/alloc, so a possible future migration to no_std is easier.
 #![cfg_attr(test, no_std)]
 #![allow(incomplete_features)]
-#![feature(arc_unwrap_or_clone, vec_into_raw_parts, array_try_map, generic_const_exprs)]
+#![feature(arc_unwrap_or_clone, vec_into_raw_parts, array_try_map, generic_const_exprs, ptr_metadata, core_c_str, alloc_c_string)]
+
 pub(crate) extern crate alloc;
 
 macro_rules! flat_mod {

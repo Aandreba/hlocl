@@ -1,12 +1,11 @@
-use std::{f32::consts::TAU, time::Instant};
-use opencl::{prelude::*, buffer::{MemFlag, FastRng}};
+use opencl::{prelude::*, buffer::{FastRng, MemFlag}};
 
 #[test]
 fn vec () -> Result<()> {
-    let first = FastRng::random_f32(-1f32, 1f32, 1000, MemFlag::default(), EMPTY)?.wait()?;
-    let last = FastRng::random_f32(0f32, TAU, 25, MemFlag::default(), EMPTY)?.wait()?;
-
-    println!("First: {first_time:?}");
-    println!("Last: {last_time:?}");
+    let device = Device::first().unwrap();
+    println!("{} & {}", device.version()?, device.driver_version()?);
+    
+    let svm = FastRng::random_f64(0.0, 1.0, 10_000, MemFlag::default(), EMPTY)?.wait()?;
+    println!("{svm:?}");
     Ok(())
 } 

@@ -1,5 +1,5 @@
 use core::mem::MaybeUninit;
-use opencl_sys::{cl_command_queue_properties, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, CL_QUEUE_PROFILING_ENABLE, cl_command_queue, clRetainCommandQueue, clReleaseCommandQueue, clCreateCommandQueue, cl_command_queue_info, clGetCommandQueueInfo, CL_QUEUE_CONTEXT, CL_QUEUE_DEVICE, CL_QUEUE_PROPERTIES};
+use opencl_sys::{cl_command_queue_properties, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, CL_QUEUE_PROFILING_ENABLE, cl_command_queue, clRetainCommandQueue, clReleaseCommandQueue, cl_command_queue_info, clGetCommandQueueInfo, CL_QUEUE_CONTEXT, CL_QUEUE_DEVICE, CL_QUEUE_PROPERTIES};
 use crate::{prelude::{Context, Error, Device}, utils::ContextManager};
 
 /// OpenCL command queue
@@ -16,8 +16,15 @@ impl CommandQueue {
         };
 
         let mut err = 0;
+
+        #[cfg(feature = "cl2")]
         let id = unsafe {
-            clCreateCommandQueue(ctx.0, device.0, props.bits(), &mut err)
+            opencl_sys::clCreateCommandQueueWithProperties(ctx.0, device.0, &props.bits(), &mut err)
+        };
+
+        #[cfg(not(feature = "cl2"))]
+        let id = unsafe {
+            opencl_sys::clCreateCommandQueue(ctx.0, device.0, props.bits(), &mut err)
         };
 
         if err == 0 {

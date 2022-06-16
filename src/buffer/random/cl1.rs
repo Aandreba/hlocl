@@ -152,7 +152,7 @@ impl FastRng {
             .chain(wait.into_iter().map(|x| x.as_ref().clone()))
             .collect::<Vec<_>>();
 
-        let out = unsafe { MemBuffer::uninit_with_context(&self.context()?, len, flags)? };
+        let out = unsafe { MemBuffer::<f64>::uninit_with_context(&self.context()?, len, flags)? };
         let mut kernel = kernel.lock();
 
         let mut wait;

@@ -1,7 +1,10 @@
-use core::{mem::MaybeUninit, intrinsics::transmute, num::{NonZeroUsize, NonZeroU32, NonZeroU64}, fmt::Debug};
+#[cfg(test)]
+extern crate std;
+
+use core::{mem::MaybeUninit, intrinsics::transmute, num::{NonZeroUsize, NonZeroU32, NonZeroU64, IntErrorKind}, fmt::{Debug, Display}, str::FromStr};
 use alloc::{vec::Vec, string::{String}, format};
-use opencl_sys::{cl_device_id, clGetDeviceIDs, CL_DEVICE_TYPE_ALL, cl_device_info, clGetDeviceInfo, CL_DEVICE_PLATFORM, CL_DEVICE_ADDRESS_BITS, cl_bool, CL_DEVICE_AVAILABLE, CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, cl_device_fp_config, CL_DEVICE_DOUBLE_FP_CONFIG, CL_DEVICE_ENDIAN_LITTLE, CL_DEVICE_ERROR_CORRECTION_SUPPORT, cl_device_exec_capabilities, CL_EXEC_KERNEL, CL_EXEC_NATIVE_KERNEL, CL_DEVICE_EXECUTION_CAPABILITIES, CL_DEVICE_EXTENSIONS, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, CL_NONE, CL_READ_ONLY_CACHE, cl_device_mem_cache_type, CL_DEVICE_GLOBAL_MEM_CACHE_TYPE, CL_READ_WRITE_CACHE, CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, CL_DEVICE_GLOBAL_MEM_SIZE, CL_DEVICE_HALF_FP_CONFIG, CL_DEVICE_IMAGE_SUPPORT, CL_DEVICE_IMAGE2D_MAX_HEIGHT, CL_DEVICE_IMAGE2D_MAX_WIDTH, CL_DEVICE_IMAGE3D_MAX_WIDTH, CL_DEVICE_IMAGE3D_MAX_HEIGHT, CL_DEVICE_IMAGE3D_MAX_DEPTH, CL_DEVICE_LOCAL_MEM_SIZE, CL_LOCAL, CL_GLOBAL, CL_DEVICE_LOCAL_MEM_TYPE, CL_DEVICE_MAX_CLOCK_FREQUENCY, CL_DEVICE_MAX_COMPUTE_UNITS, CL_DEVICE_MAX_CONSTANT_ARGS, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, CL_DEVICE_MAX_MEM_ALLOC_SIZE, CL_DEVICE_MAX_PARAMETER_SIZE, CL_DEVICE_MAX_READ_IMAGE_ARGS, CL_DEVICE_MAX_SAMPLERS, CL_DEVICE_MAX_WORK_GROUP_SIZE, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, CL_DEVICE_MAX_WORK_ITEM_SIZES, CL_DEVICE_MAX_WRITE_IMAGE_ARGS, CL_DEVICE_MEM_BASE_ADDR_ALIGN, CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE, CL_DEVICE_NAME, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG, CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE, CL_DEVICE_PROFILE, CL_DEVICE_PROFILING_TIMER_RESOLUTION, CL_DEVICE_QUEUE_PROPERTIES, CL_DEVICE_SINGLE_FP_CONFIG, cl_device_type, CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_GPU, CL_DEVICE_TYPE_ACCELERATOR, CL_DEVICE_TYPE_CUSTOM, CL_DEVICE_TYPE, CL_DEVICE_VENDOR, CL_DEVICE_VENDOR_ID, CL_DEVICE_VERSION, CL_DRIVER_VERSION, clReleaseDevice, clRetainDevice, CL_DEVICE_REFERENCE_COUNT, cl_device_svm_capabilities, CL_DEVICE_SVM_COARSE_GRAIN_BUFFER, CL_DEVICE_SVM_FINE_GRAIN_BUFFER, CL_DEVICE_SVM_FINE_GRAIN_SYSTEM, CL_DEVICE_SVM_ATOMICS, CL_DEVICE_SVM_CAPABILITIES};
-use crate::{platform::Platform, queue::CommandQueueProps, prelude::Error, error::Result};
+use opencl_sys::{cl_device_id, clGetDeviceIDs, CL_DEVICE_TYPE_ALL, cl_device_info, clGetDeviceInfo, CL_DEVICE_PLATFORM, CL_DEVICE_ADDRESS_BITS, cl_bool, CL_DEVICE_AVAILABLE, CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, cl_device_fp_config, CL_DEVICE_DOUBLE_FP_CONFIG, CL_DEVICE_ENDIAN_LITTLE, CL_DEVICE_ERROR_CORRECTION_SUPPORT, cl_device_exec_capabilities, CL_EXEC_KERNEL, CL_EXEC_NATIVE_KERNEL, CL_DEVICE_EXECUTION_CAPABILITIES, CL_DEVICE_EXTENSIONS, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, CL_NONE, CL_READ_ONLY_CACHE, cl_device_mem_cache_type, CL_DEVICE_GLOBAL_MEM_CACHE_TYPE, CL_READ_WRITE_CACHE, CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, CL_DEVICE_GLOBAL_MEM_SIZE, CL_DEVICE_HALF_FP_CONFIG, CL_DEVICE_IMAGE_SUPPORT, CL_DEVICE_IMAGE2D_MAX_HEIGHT, CL_DEVICE_IMAGE2D_MAX_WIDTH, CL_DEVICE_IMAGE3D_MAX_WIDTH, CL_DEVICE_IMAGE3D_MAX_HEIGHT, CL_DEVICE_IMAGE3D_MAX_DEPTH, CL_DEVICE_LOCAL_MEM_SIZE, CL_LOCAL, CL_GLOBAL, CL_DEVICE_LOCAL_MEM_TYPE, CL_DEVICE_MAX_CLOCK_FREQUENCY, CL_DEVICE_MAX_COMPUTE_UNITS, CL_DEVICE_MAX_CONSTANT_ARGS, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, CL_DEVICE_MAX_MEM_ALLOC_SIZE, CL_DEVICE_MAX_PARAMETER_SIZE, CL_DEVICE_MAX_READ_IMAGE_ARGS, CL_DEVICE_MAX_SAMPLERS, CL_DEVICE_MAX_WORK_GROUP_SIZE, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, CL_DEVICE_MAX_WORK_ITEM_SIZES, CL_DEVICE_MAX_WRITE_IMAGE_ARGS, CL_DEVICE_MEM_BASE_ADDR_ALIGN, CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE, CL_DEVICE_NAME, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG, CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE, CL_DEVICE_PROFILE, CL_DEVICE_PROFILING_TIMER_RESOLUTION, CL_DEVICE_QUEUE_PROPERTIES, CL_DEVICE_SINGLE_FP_CONFIG, cl_device_type, CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_GPU, CL_DEVICE_TYPE_ACCELERATOR, CL_DEVICE_TYPE_CUSTOM, CL_DEVICE_TYPE, CL_DEVICE_VENDOR, CL_DEVICE_VENDOR_ID, CL_DEVICE_VERSION, CL_DRIVER_VERSION, clReleaseDevice, clRetainDevice, CL_DEVICE_REFERENCE_COUNT, cl_device_svm_capabilities, CL_DEVICE_SVM_COARSE_GRAIN_BUFFER, CL_DEVICE_SVM_FINE_GRAIN_BUFFER, CL_DEVICE_SVM_FINE_GRAIN_SYSTEM, CL_DEVICE_SVM_ATOMICS, CL_DEVICE_SVM_CAPABILITIES, cl_version, CL_VERSION_PATCH_BITS, CL_VERSION_MINOR_BITS, CL_VERSION_MAJOR_MASK, CL_VERSION_MINOR_MASK, CL_VERSION_PATCH_MASK};
+use crate::{platform::Platform, queue::CommandQueueProps, prelude::Error, error::{Result, ErrorCL}};
 
 lazy_static! {
     static ref DEVICES : Vec<Device> = unsafe {
@@ -15,6 +18,11 @@ lazy_static! {
             result.reserve(cnt_size);
             tri_panic!(clGetDeviceIDs(platform.0, CL_DEVICE_TYPE_ALL, cnt, result.as_mut_ptr().add(result.len()).cast(), core::ptr::null_mut()));
             result.set_len(result.len() + cnt_size);
+        }
+
+        #[cfg(debug_assertions)]
+        if !result.iter().all(|x| x.version().map(|x| x.major() >= 2).unwrap_or(true)) {
+            std::eprintln!("WARNING: Some of the devices inside this context arn't OpenCL 2.0+ compatible. If this is intentional, we suggest you turn off the `cl2` feature");
         }
 
         result
@@ -377,14 +385,63 @@ impl Device {
 
     /// OpenCL version string.
     #[inline(always)]
-    pub fn version (&self) -> Result<String> {
+    pub fn version_string (&self) -> Result<String> {
         self.get_info_string(CL_DEVICE_VERSION)
+    }
+
+    /// OpenCL version
+    pub fn version (&self) -> Result<Version> {
+        let version = self.version_string()?;
+        let section = version.split(' ').nth(1).ok_or(ErrorCL::from(Error::InvalidValue))?;
+
+        match Version::from_str(section) {
+            Ok(x) => Ok(x),
+            #[cfg(feature = "error-stack")]
+            Err(e) => {
+                let desc = match e {
+                    IntErrorKind::Empty => "cannot parse integer from empty string",
+                    IntErrorKind::InvalidDigit => "invalid digit found in string",
+                    IntErrorKind::PosOverflow => "number too large to fit in target type",
+                    IntErrorKind::NegOverflow => "number too small to fit in target type",
+                    IntErrorKind::Zero => "number would be zero for non-zero type",
+                    _ => "unknown error"
+                };
+
+                Err(error_stack::Report::new(Error::InvalidValue).attach_printable(desc))
+            },
+            #[cfg(not(feature = "error-stack"))]
+            Err(_) => Err(Error::InvalidValue)
+        }
     }
 
     /// OpenCL software driver version string in the form _major_number_._minor_number_.
     #[inline(always)]
-    pub fn driver_version (&self) -> Result<String> {
+    pub fn driver_version_string (&self) -> Result<String> {
         self.get_info_string(CL_DRIVER_VERSION)
+    }
+
+    /// OpenCL software driver version
+    pub fn driver_version (&self) -> Result<Version> {
+        let driver = self.driver_version_string()?;
+
+        match Version::from_str(&driver) {
+            Ok(x) => Ok(x),
+            #[cfg(feature = "error-stack")]
+            Err(e) => {
+                let desc = match e {
+                    IntErrorKind::Empty => "cannot parse integer from empty string",
+                    IntErrorKind::InvalidDigit => "invalid digit found in string",
+                    IntErrorKind::PosOverflow => "number too large to fit in target type",
+                    IntErrorKind::NegOverflow => "number too small to fit in target type",
+                    IntErrorKind::Zero => "number would be zero for non-zero type",
+                    _ => "unknown error"
+                };
+
+                Err(error_stack::Report::new(Error::InvalidValue).attach_printable(desc))
+            },
+            #[cfg(not(feature = "error-stack"))]
+            Err(_) => Err(Error::InvalidValue)
+        }
     }
 
     #[inline(always)]
@@ -488,8 +545,8 @@ impl Debug for Device {
         .field("vendor", &self.vendor())
         .field("vendor_id", &self.vendor_id())
         .field("profile", &self.profile())
-        .field("version", &self.version())
-        .field("driver_version", &self.driver_version())
+        .field("version", &self.version_string())
+        .field("driver_version", &self.driver_version_string())
         .field("extensions", &self.extensions())
         .field("address_bits", &self.address_bits())
         .field("available", &self.available())
@@ -534,7 +591,7 @@ impl Debug for Device {
         .field("queue_properties", &self.queue_properties())
         .field("single_fp_config", &self.single_fp_config())
         .field("type", &self.ty())
-        .field("version", &self.version())
+        .field("version", &self.version_string())
         .finish()
     }
 }
@@ -605,5 +662,94 @@ bitflags::bitflags! {
         const FINE_GRAIN_SYSTEM = CL_DEVICE_SVM_FINE_GRAIN_SYSTEM;
         /// Support for the OpenCL 2.0 atomic operations that provide memory consistency across the host and all OpenCL devices supporting fine-grain SVM allocations.
         const ATOMICS = CL_DEVICE_SVM_ATOMICS;
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct Version (cl_version);
+
+impl Version {
+    pub const CL1 : Self = Self::from_inner_parts(1, 0, 0);
+    pub const CL1_1 : Self = Self::from_inner_parts(1, 1, 0);
+    pub const CL1_2 : Self = Self::from_inner_parts(1, 2, 0);
+    pub const CL2 : Self = Self::from_inner_parts(2, 0, 0);
+    pub const CL2_1 : Self = Self::from_inner_parts(2, 1, 0);
+    pub const CL2_2 : Self = Self::from_inner_parts(2, 2, 0);
+    pub const CL3 : Self = Self::from_inner_parts(3, 0, 0);
+
+    const MAJOR : u32 = CL_VERSION_MINOR_BITS + CL_VERSION_PATCH_BITS;
+
+    #[inline(always)]
+    pub const fn from_bits (bits : u32) -> Self {
+        Self(bits)
+    }
+
+    #[inline(always)]
+    pub const fn from_inner_parts (major: u32, minor: u32, patch: u32) -> Self {
+        Self (
+            ((major & CL_VERSION_MAJOR_MASK) << Self::MAJOR) |
+            ((minor & CL_VERSION_MINOR_MASK) << CL_VERSION_PATCH_BITS) |
+            (patch & CL_VERSION_PATCH_MASK)
+        )
+    }
+
+    #[inline(always)]
+    pub const fn into_inner_parts (self) -> (u32, u32, u32) {
+        (self.major(), self.minor(), self.patch())
+    }
+
+    #[inline(always)]
+    pub const fn major(&self) -> u32 {
+        self.0 >> Self::MAJOR
+    }
+
+    #[inline(always)]
+    pub const fn minor (&self) -> u32 {
+        (self.0 >> CL_VERSION_PATCH_BITS) & CL_VERSION_MINOR_MASK
+    }
+
+    #[inline(always)]
+    pub const fn patch (&self) -> u32 {
+        self.0 & CL_VERSION_PATCH_MASK
+    }
+}
+
+impl FromStr for Version {
+    type Err = IntErrorKind;
+
+    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+        let mut parts = s.split('.');
+        
+        let major = parts.next().ok_or(IntErrorKind::Empty)?.parse::<u32>().map_err(|e| e.kind().clone())?;
+        let minor = parts.next().ok_or(IntErrorKind::Empty)?.parse::<u32>().map_err(|e| e.kind().clone())?;
+        let patch_str = parts.next();
+
+        let patch;
+        if let Some(inner) = patch_str {
+            patch = Some(inner.parse::<u32>().map_err(|e| e.kind().clone())?)
+        } else {
+            patch = None;
+        }
+
+        if parts.next().is_some() {
+            return Err(IntErrorKind::InvalidDigit);
+        }
+
+        Ok(Self::from_inner_parts(major, minor, patch.unwrap_or_default()))
+    }
+}
+
+impl Debug for Version {
+    #[inline(always)]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        Display::fmt(&self, f)
+    }
+}
+
+impl Display for Version {
+    #[inline(always)]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}.{}.{}", self.major(), self.minor(), self.patch())
     }
 }
