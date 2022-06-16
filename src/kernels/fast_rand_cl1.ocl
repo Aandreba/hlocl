@@ -43,26 +43,30 @@ void kernel rand_long (const ulong n, const ulong offset, __global ulong *seed, 
     }
 }
 
-void kernel rand_float (const ulong n, const ulong offset, __global ulong *seed, __global float *out) {
+void kernel rand_float (const ulong n, const float min, const float max, const ulong offset, __global ulong *seed, __global float *out) {
     for (ulong id = get_global_id(0); id<n; id += get_global_size(0)) {
         ulong prev = seed[id];
         ulong next = (prev * MUL + ADDEND) & MASK;
+        float result = (float)(next >> (48 - 24)) / (float)(1 << 24);
 
         seed[id] = next;
-        out[id + offset] = (float)(next >> (48 - 24)) / (float)(1 << 24);
+        out[id + offset] = result * (max - min) + min;
     }
 }
 
-void kernel rand_double (const ulong n, const ulong offset, __global ulong *seed, __global double *out) {
+#if cl_khr_fp64
+void kernel rand_double (const ulong n, const double min, const double max, const ulong offset, __global ulong *seed, __global double *out) {
     for (ulong id = get_global_id(0); id<n; id += get_global_size(0)) {
         ulong prev = seed[id];
         ulong first = (prev * MUL + ADDEND) & MASK;
         ulong last = (first * MUL + ADDEND) & MASK;
 
-        ulong result = ((first >> (48 - 26)) << 27);
-        result += last >> (48 - 27);
+        ulong bit_result = ((first >> (48 - 26)) << 27);
+        bit_result += last >> (48 - 27);
+        double result = (double)(bit_result) / (double)(1 << 53);
 
         seed[id] = last;
-        out[id + offset] = (double)(result) / (double)(1 << 53);
+        out[id + offset] = result * (max - min) + min;
     }
 }
+#endif

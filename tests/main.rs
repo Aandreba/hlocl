@@ -1,11 +1,12 @@
+use std::{f32::consts::TAU, time::Instant};
 use opencl::{prelude::*, buffer::{MemFlag, FastRng}};
 
 #[test]
 fn vec () -> Result<()> {
-    let rng = FastRng::with_context(Context::default(), 10)?;
-    let u = rng.random_f32_with_queue(CommandQueue::default(), 5, MemFlag::default(), EMPTY)?.wait()?;
-    let s = rng.random_f64_with_queue(CommandQueue::default(), 5, MemFlag::default(), EMPTY)?.wait()?;
+    let first = FastRng::random_f32(-1f32, 1f32, 1000, MemFlag::default(), EMPTY)?.wait()?;
+    let last = FastRng::random_f32(0f32, TAU, 25, MemFlag::default(), EMPTY)?.wait()?;
 
-    println!("{u:?} - {s:?}");
+    println!("First: {first_time:?}");
+    println!("Last: {last_time:?}");
     Ok(())
 } 
