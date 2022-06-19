@@ -1,14 +1,19 @@
 [package]
-name = "opencl"
+name = "hlocl"
+descripotion = "High-level bindings for OpenCL"
 version = "0.1.0"
 edition = "2021"
+license = "MIT or Apache 2.0"
+keywords = ["gpgpu", "opencl", "ocl", "opencl-framework", "ocl-framework"]
+categories = ["api-bindings", "asynchronous", "concurrency", "external-ffi-bindings", "hardware-support"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
-default = ["def", "cl2", "error-stack"]
+default = ["def"]
 cl2 = ["opencl-sys/CL_VERSION_2_0"]
 async = ["futures", "future-parking_lot", "error-stack?/futures"]
 def = []
+rand = []
 
 [dependencies]
 opencl-sys = { version = "0.2.1" }
@@ -22,8 +27,7 @@ error-stack = { version = "0.1.0", optional = true }
 future-parking_lot = { version = "0.3.3", optional = true }
 futures = { version = "0.3.21", optional = true }
 serde = { version = "1", optional = true }
-rand = { version = "0.8.5", optional = true }
 
 [dev-dependencies]
-tokio = { veriosn = "1", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
 serde_json = "1"

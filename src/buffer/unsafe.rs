@@ -1,6 +1,6 @@
-use core::{ptr::{NonNull, addr_of}, marker::PhantomData, mem::{MaybeUninit, ManuallyDrop}, ops::{RangeBounds, Bound}, fmt::Debug, ffi::c_void};
+use core::{ptr::{NonNull}, marker::PhantomData, mem::{MaybeUninit, ManuallyDrop}, ops::{RangeBounds, Bound}, fmt::Debug, ffi::c_void};
 use alloc::{vec::{Vec, IntoIter}, boxed::Box, format};
-use opencl_sys::{cl_mem, clReleaseMemObject, clCreateBuffer, cl_mem_info, clGetMemObjectInfo, CL_MEM_FLAGS, CL_MEM_SIZE, CL_MEM_HOST_PTR, CL_MEM_MAP_COUNT, CL_MEM_REFERENCE_COUNT, CL_MEM_CONTEXT, CL_MEM_ASSOCIATED_MEMOBJECT, CL_MEM_OFFSET, clCreateSubBuffer, CL_BUFFER_CREATE_TYPE_REGION};
+use opencl_sys::{cl_mem, clReleaseMemObject, clCreateBuffer, cl_mem_info, clGetMemObjectInfo, CL_MEM_FLAGS, CL_MEM_SIZE, CL_MEM_HOST_PTR, CL_MEM_MAP_COUNT, CL_MEM_REFERENCE_COUNT, CL_MEM_CONTEXT, CL_MEM_ASSOCIATED_MEMOBJECT, CL_MEM_OFFSET};
 use crate::{prelude::{Result, Context, Error, CommandQueue, EMPTY}, event::{ReadBuffer, BaseEvent, WriteBuffer, Event, CopyBuffer, various::{Then, Map}}};
 use super::{MemFlag};
 
@@ -170,8 +170,7 @@ impl<T: Copy + Unpin> MemBuffer<T> {
         Ok(evt.then(move |_| unsafe { drop(Box::from_raw(ptr)) }))
     }
 
-    #[inline(always)]
-    pub fn slice (&self, range: impl RangeBounds<usize>) -> Result<Self> {
+    /*pub fn slice (&self, range: impl RangeBounds<usize>) -> Result<Self> {
         let (offset, len) = self.get_offset_len(&range)?;
         let flags = self.flags()? & (MemFlag::READ_WRITE | MemFlag::READ_ONLY | MemFlag::WRITE_ONLY);
         let offset = offset.checked_mul(core::mem::size_of::<T>()).expect("Integer overflow. Too many elements in buffer");
@@ -207,7 +206,7 @@ impl<T: Copy + Unpin> MemBuffer<T> {
                 Err(Error::from(err))
             }
         }
-    }
+    }*/
 
     #[cfg(feature = "def")]
     #[inline(always)]

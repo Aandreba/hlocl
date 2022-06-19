@@ -1,7 +1,7 @@
 #[cfg(test)]
 extern crate std;
 
-use core::{ptr::{NonNull}, ops::{Deref, DerefMut}, fmt::Display, alloc::Layout, mem::ManuallyDrop, ffi::CStr};
+use core::{ptr::{NonNull}, ops::{Deref, DerefMut}, fmt::Display, alloc::Layout, mem::{ManuallyDrop, MaybeUninit}, ffi::CStr};
 use alloc::{string::String, vec::Vec};
 use opencl_sys::{clSVMAlloc, clSVMFree};
 use core::fmt::Debug;
@@ -60,7 +60,7 @@ impl<T: ?Sized> SvmValue<T> {
         let ptr = clSVMAlloc(ctx.0, flags.bits(), size, align);
 
         if let Some(ptr) = NonNull::new(ptr) {
-            let ptr = core::ptr::from_raw_parts::<T>(ptr.as_ptr().cast(), core::mem::zeroed());
+            let ptr = core::ptr::from_raw_parts::<T>(ptr.as_ptr().cast(), MaybeUninit::uninit().assume_init());
 
             return Some(Self {
                 inner: NonNull::new_unchecked(ptr as *mut _),
