@@ -38,14 +38,13 @@ impl<E: Event, F: Unpin + FnOnce(&mut E::Result)> Event for Then<E, F> {
 
     #[inline(always)]
     fn wait_all (iter: impl IntoIterator<Item = Self>) -> Result<alloc::vec::Vec<Self::Result>> {
+        #[cfg(feature = "async")]
+        let (inner, f) : (Vec<_>, Vec<_>) = iter.into_iter().map(|x| (x.inner, x.f.unwrap())).unzip();
+        #[cfg(not(feature = "async"))]
         let (inner, f) : (Vec<_>, Vec<_>) = iter.into_iter().map(|x| (x.inner, x.f)).unzip();
         let mut base = <E as Event>::wait_all(inner)?;
 
-        #[cfg(feature = "async")]
-        f.into_iter().zip(base.iter_mut()).for_each(|(f, x)| f.unwrap()(x));
-        #[cfg(not(feature = "async"))]
-        f.into_iter().zip(base.iter_mut()).for_each(|(f, x)| f(&mut x));
-
+        f.into_iter().zip(base.iter_mut()).for_each(|(f, x)| f(x));
         Ok(base)
     }
 }

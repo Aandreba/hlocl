@@ -1,7 +1,10 @@
 use core::{mem::MaybeUninit, num::NonZeroUsize};
-use alloc::{string::{String}, vec::Vec, format};
-use opencl_sys::{cl_program, clReleaseProgram, clCreateProgramWithSource, clRetainProgram, clBuildProgram, cl_program_info, clGetProgramInfo, CL_PROGRAM_REFERENCE_COUNT, CL_PROGRAM_CONTEXT, CL_PROGRAM_NUM_DEVICES, CL_PROGRAM_DEVICES, CL_PROGRAM_SOURCE, clGetProgramBuildInfo, CL_PROGRAM_BUILD_LOG};
+use alloc::{string::{String}, vec::Vec};
+use opencl_sys::{cl_program, clReleaseProgram, clCreateProgramWithSource, clRetainProgram, clBuildProgram, cl_program_info, clGetProgramInfo, CL_PROGRAM_REFERENCE_COUNT, CL_PROGRAM_CONTEXT, CL_PROGRAM_NUM_DEVICES, CL_PROGRAM_DEVICES, CL_PROGRAM_SOURCE};
 use crate::{prelude::{Result, Error, Context, Device}};
+
+#[cfg(feature = "error-stack")]
+use {alloc::format, opencl_sys::{clGetProgramBuildInfo, CL_PROGRAM_BUILD_LOG}};
 
 /// OpenCL program
 #[derive(PartialEq, Eq, Hash)]
@@ -110,6 +113,7 @@ impl Program {
         todo!()
     }
 
+    #[allow(unused_variables)]
     #[inline(always)]
     fn build (&self, cx: &Context) -> Result<()> {
         let build_result = unsafe {
@@ -180,6 +184,7 @@ impl Program {
         }
     }
 
+    #[allow(unused_variables)]
     fn parse_error (&self, err: i32, ty: cl_program_info, size: usize) -> Result<()> {
         if err == 0 {
             return Ok(());

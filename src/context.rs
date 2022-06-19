@@ -1,9 +1,11 @@
 use core::mem::MaybeUninit;
-use alloc::format;
 use alloc::vec::{Vec};
 use opencl_sys::{cl_context, cl_context_properties, CL_CONTEXT_PLATFORM, CL_CONTEXT_INTEROP_USER_SYNC, clCreateContext, clReleaseContext, clRetainContext, cl_context_info, clGetContextInfo, CL_CONTEXT_REFERENCE_COUNT, CL_CONTEXT_NUM_DEVICES, CL_CONTEXT_DEVICES};
 use crate::error::Error;
 use crate::prelude::{Platform, Device, Result};
+
+#[cfg(feature = "error-stack")]
+use alloc::format;
 
 /// OpenCL context
 #[derive(PartialEq, Eq, Hash)]
@@ -99,6 +101,7 @@ impl Context {
         }
     }
 
+    #[allow(unused_variables)]
     fn parse_error (&self, err: i32, ty: cl_context_info, size: usize) -> Result<()> {
         if err == 0 {
             return Ok(());

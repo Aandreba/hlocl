@@ -2,9 +2,12 @@
 extern crate std;
 
 use core::{mem::MaybeUninit, ptr::addr_of};
-use alloc::{string::{String}, vec::Vec, format};
+use alloc::{string::{String}, vec::Vec};
 use opencl_sys::{cl_kernel, clReleaseKernel, clCreateKernel, clGetKernelInfo, cl_kernel_info, CL_KERNEL_FUNCTION_NAME, CL_KERNEL_NUM_ARGS, CL_KERNEL_REFERENCE_COUNT, CL_KERNEL_CONTEXT, CL_KERNEL_PROGRAM, clSetKernelArg, cl_kernel_arg_info, CL_KERNEL_ARG_ADDRESS_GLOBAL, CL_KERNEL_ARG_ADDRESS_LOCAL, CL_KERNEL_ARG_ADDRESS_CONSTANT, CL_KERNEL_ARG_ADDRESS_PRIVATE, CL_KERNEL_ARG_ADDRESS_QUALIFIER, CL_KERNEL_ARG_ACCESS_READ_ONLY, CL_KERNEL_ARG_ACCESS_WRITE_ONLY, CL_KERNEL_ARG_ACCESS_READ_WRITE, CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_ACCESS_QUALIFIER, clGetKernelArgInfo, CL_KERNEL_ARG_NAME, CL_KERNEL_ARG_TYPE_NAME, CL_KERNEL_ARG_TYPE_CONST, CL_KERNEL_ARG_TYPE_RESTRICT, CL_KERNEL_ARG_TYPE_VOLATILE, CL_KERNEL_ARG_TYPE_QUALIFIER, clEnqueueNDRangeKernel, cl_mem, cl_kernel_arg_type_qualifier};
 use crate::{prelude::{Error, Program, Context, CommandQueue, BaseEvent}, error::Result, buffer::MemBuffer};
+
+#[cfg(feature = "error-stack")]
+use alloc::format;
 
 #[derive(PartialEq, Eq, Hash)]
 #[repr(transparent)]
@@ -233,6 +236,7 @@ impl Kernel {
         }
     }
 
+    #[allow(unused_variables)]
     fn parse_error (&self, err: i32, ty: cl_kernel_info, size: usize) -> Result<()> {
         if err == 0 {
             return Ok(());
@@ -258,6 +262,7 @@ impl Kernel {
         }
     }
 
+    #[allow(unused_variables)]
     fn parse_error_arg (&self, err: i32, ty: cl_kernel_arg_info, size: usize) -> Result<()> {
         if err == 0 {
             return Ok(());
@@ -283,6 +288,7 @@ impl Kernel {
         }
     }
 
+    #[allow(unused_variables)]
     fn parse_error_set_arg (&self, err: i32, idx: u32, size: usize) -> Result<()> {
         if err == 0 {
             return Ok(());

@@ -1,8 +1,11 @@
 use core::{ptr::{NonNull}, marker::PhantomData, mem::{MaybeUninit, ManuallyDrop}, ops::{RangeBounds, Bound}, fmt::Debug, ffi::c_void};
-use alloc::{vec::{Vec, IntoIter}, boxed::Box, format};
+use alloc::{vec::{Vec, IntoIter}, boxed::Box};
 use opencl_sys::{cl_mem, clReleaseMemObject, clCreateBuffer, cl_mem_info, clGetMemObjectInfo, CL_MEM_FLAGS, CL_MEM_SIZE, CL_MEM_HOST_PTR, CL_MEM_MAP_COUNT, CL_MEM_REFERENCE_COUNT, CL_MEM_CONTEXT, CL_MEM_ASSOCIATED_MEMOBJECT, CL_MEM_OFFSET};
 use crate::{prelude::{Result, Context, Error, CommandQueue, EMPTY}, event::{ReadBuffer, BaseEvent, WriteBuffer, Event, CopyBuffer, various::{Then, Map}}};
 use super::{MemFlag};
+
+#[cfg(feature = "error-stack")]
+use alloc::format;
 
 #[repr(transparent)]
 pub struct MemBuffer<T: 'static + Copy + Unpin> (pub(crate) cl_mem, pub(super) PhantomData<T>); 

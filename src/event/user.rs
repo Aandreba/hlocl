@@ -1,7 +1,9 @@
-use alloc::format;
 use opencl_sys::{clCreateUserEvent, clSetUserEventStatus, CL_COMPLETE};
 use crate::prelude::{Result, Error, Context};
 use super::{BaseEvent, Event};
+
+#[cfg(feature = "error-stack")]
+use alloc::format;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]

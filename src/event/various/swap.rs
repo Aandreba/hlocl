@@ -1,5 +1,4 @@
 use alloc::vec::Vec;
-
 use crate::prelude::{Event, Result, BaseEvent};
 
 pub struct Swap<T, E> {
@@ -36,7 +35,10 @@ impl<T: Unpin, E: Event> Event for Swap<T, E> {
 
     #[inline(always)]
     fn wait_all (iter: impl IntoIterator<Item = Self>) -> Result<alloc::vec::Vec<Self::Result>> {
+        #[cfg(feature = "async")]
         let (inner, v) : (Vec<_>, Vec<_>) = iter.into_iter().map(|x| (x.inner, x.v.unwrap())).unzip();
+        #[cfg(not(feature = "async"))]
+        let (inner, v) : (Vec<_>, Vec<_>) = iter.into_iter().map(|x| (x.inner, x.v)).unzip();
         <E as Event>::wait_all(inner)?;
         Ok(v)
     }

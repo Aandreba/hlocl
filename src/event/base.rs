@@ -1,10 +1,14 @@
 use core::{mem::MaybeUninit, ptr::addr_of, hash::Hash};
-use alloc::{format, vec::Vec};
+use alloc::{vec::Vec};
 use opencl_sys::{cl_event, cl_event_info, clReleaseEvent, clGetEventInfo, CL_EVENT_COMMAND_QUEUE, CL_EVENT_COMMAND_TYPE, CL_EVENT_COMMAND_EXECUTION_STATUS, clWaitForEvents, clRetainEvent};
 use crate::prelude::{Result, Error};
 use super::Event;
+
 #[cfg(feature = "async")]
 use core::ffi::c_void;
+
+#[cfg(feature = "error-stack")]
+use alloc::format;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "async")] {
@@ -77,6 +81,7 @@ impl BaseEvent {
         }
     }
 
+    #[allow(unused_variables)]
     fn parse_error (&self, err: i32, ty: cl_event_info, size: usize) -> Result<()> {
         if err == 0 { return Ok(()); }
         
