@@ -3,7 +3,7 @@ name = "hlocl"
 description = "High-level bindings for OpenCL"
 version = "0.1.0"
 edition = "2021"
-license = "MIT or Apache-2.0"
+license = "MIT OR Apache-2.0"
 keywords = ["gpgpu", "opencl", "ocl", "opencl-framework", "ocl-framework"]
 categories = ["api-bindings", "asynchronous", "concurrency", "external-ffi-bindings", "hardware-support"]
 
