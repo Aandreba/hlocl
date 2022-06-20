@@ -1,6 +1,6 @@
 use core::{mem::MaybeUninit, num::NonZeroUsize};
 use alloc::{string::{String}, vec::Vec};
-use opencl_sys::{cl_program, clReleaseProgram, clCreateProgramWithSource, clRetainProgram, clBuildProgram, cl_program_info, clGetProgramInfo, CL_PROGRAM_REFERENCE_COUNT, CL_PROGRAM_CONTEXT, CL_PROGRAM_NUM_DEVICES, CL_PROGRAM_DEVICES, CL_PROGRAM_SOURCE};
+use opencl_sys::{cl_program, clReleaseProgram, clCreateProgramWithSource, clRetainProgram, clBuildProgram, cl_program_info, clGetProgramInfo, CL_PROGRAM_REFERENCE_COUNT, CL_PROGRAM_CONTEXT, CL_PROGRAM_NUM_DEVICES, CL_PROGRAM_DEVICES, CL_PROGRAM_SOURCE, clRetainContext};
 use crate::{prelude::{Result, Error, Context, Device}};
 
 #[cfg(feature = "error-stack")]
@@ -61,7 +61,9 @@ impl Program {
     /// Return the context specified when the program object is created
     #[inline(always)]
     pub fn context (&self) -> Result<Context> {
-        self.get_info(CL_PROGRAM_CONTEXT)
+        let ctx : Context = self.get_info(CL_PROGRAM_CONTEXT)?;
+        unsafe { tri_panic!(clRetainContext(ctx.0)); }
+        Ok(ctx)
     }
 
     /// Return the number of devices associated with program.

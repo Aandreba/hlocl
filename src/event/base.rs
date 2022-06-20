@@ -1,7 +1,7 @@
 use core::{mem::MaybeUninit, ptr::addr_of, hash::Hash};
 use alloc::{vec::Vec};
-use opencl_sys::{cl_event, cl_event_info, clReleaseEvent, clGetEventInfo, CL_EVENT_COMMAND_QUEUE, CL_EVENT_COMMAND_TYPE, CL_EVENT_COMMAND_EXECUTION_STATUS, clWaitForEvents, clRetainEvent};
-use crate::prelude::{Result, Error};
+use opencl_sys::{cl_event, cl_event_info, clReleaseEvent, clGetEventInfo, CL_EVENT_COMMAND_QUEUE, CL_EVENT_COMMAND_TYPE, CL_EVENT_COMMAND_EXECUTION_STATUS, clWaitForEvents, clRetainEvent, clRetainCommandQueue};
+use crate::prelude::{Result, Error, CommandQueue};
 use super::Event;
 
 #[cfg(feature = "async")]
@@ -109,7 +109,9 @@ impl Event for BaseEvent {
     
     #[inline(always)]
     fn command_queue (&self) -> Result<crate::prelude::CommandQueue> {
-        self.get_info(CL_EVENT_COMMAND_QUEUE)
+        let queue : CommandQueue = self.get_info(CL_EVENT_COMMAND_QUEUE)?;
+        unsafe { tri_panic!(clRetainCommandQueue(queue.0)); }
+        Ok(queue)
     }
 
     #[inline(always)]

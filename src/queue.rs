@@ -1,5 +1,5 @@
 use core::mem::MaybeUninit;
-use opencl_sys::{cl_command_queue_properties, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, CL_QUEUE_PROFILING_ENABLE, cl_command_queue, clRetainCommandQueue, clReleaseCommandQueue, cl_command_queue_info, clGetCommandQueueInfo, CL_QUEUE_CONTEXT, CL_QUEUE_DEVICE, CL_QUEUE_PROPERTIES};
+use opencl_sys::{cl_command_queue_properties, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, CL_QUEUE_PROFILING_ENABLE, cl_command_queue, clRetainCommandQueue, clReleaseCommandQueue, cl_command_queue_info, clGetCommandQueueInfo, CL_QUEUE_CONTEXT, CL_QUEUE_DEVICE, CL_QUEUE_PROPERTIES, clRetainContext};
 use crate::{prelude::{Context, Error, Device}, utils::ContextManager};
 
 /// OpenCL command queue
@@ -37,7 +37,9 @@ impl CommandQueue {
     /// Return the context specified when the command-queue is created.
     #[inline(always)]
     pub fn context (&self) -> Result<Context, Error> {
-        self.get_info(CL_QUEUE_CONTEXT)
+        let ctx : Context = self.get_info(CL_QUEUE_CONTEXT)?;
+        unsafe { tri_panic!(clRetainContext(ctx.0)); }
+        Ok(ctx)
     }
 
     /// Return the device specified when the command-queue is created.

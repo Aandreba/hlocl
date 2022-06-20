@@ -1,11 +1,17 @@
-use opencl::{prelude::*, buffer::{FastRng, MemFlag}};
+use hlocl::{prelude::*, buffer::{MemFlag, FastRng}, event::various::Swap};
+
+static PROGRAM : &str = "void kernel add (const ulong n, __global const float* rhs, __global const float* in, __global float* out) {
+    for (ulong id = get_global_id(0); id<n; id += get_global_size(0)) {
+        out[id] = in[id] + rhs[id];
+    }
+}";
 
 #[test]
-fn vec () -> Result<()> {
-    let device = Device::first().unwrap();
-    println!("{} & {}", device.version()?, device.driver_version()?);
-    
-    let svm = FastRng::random_f64(0.0, 1.0, 10_000, MemFlag::default(), EMPTY)?.wait()?;
-    println!("{svm:?}");
+fn main () -> Result<()> {
+    let alpha = FastRng
+
+    let prog = Program::from_source_with_context(&ctx, PROGRAM)?;
+
+    //panic!("{:?}", ctx.reference_count());
     Ok(())
-} 
+}

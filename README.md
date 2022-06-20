@@ -1,8 +1,12 @@
 # High-Level OpenCL
 > **WARNING**\
-> hlocl is still in an alpha stage. 
+> hlocl is still in an alpha stage. Functions and others are still open to be renamed or deleted without a deprecation period, so it is not recommended for use in production (yet).
 
 hlocl is a high-level OpenCL API for Rust
+
+# Example
+```rust
+```
 
 # Features
 | Name  | Description                                                                             | Default |

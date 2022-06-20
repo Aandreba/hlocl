@@ -1,75 +1,10 @@
-use core::{fmt::Display, hint::unreachable_unchecked};
+use core::{fmt::{Display, Debug}};
 
 pub type Result<T> = core::result::Result<T, ErrorCL>;
 #[cfg(feature = "error-stack")]
 pub type ErrorCL = error_stack::Report<Error>;
 #[cfg(not(feature = "error-stack"))]
 pub type ErrorCL = Error;
-
-const ERROR_MESSAGES_1 : &[&str] = &[
-    "Device not found",
-    "Device not available",
-    "Compiler not available",
-    "Memory object allocation failure",
-    "Out of resources",
-    "Out of host memory",
-    "Profiling info not available",
-    "Memory copy overlap",
-    "Image format mismatch",
-    "Image format not supported",
-    "Build program failure",
-    "Map failure",
-    "Misaligned sub-buffer offset",
-    "Execution status error for events in wait list",
-    "Program compilation failure",
-    "Linker not available",
-    "Program linking failure",
-    "Device partition failure",
-    "Kernel argument info not available"
-];
-
-const ERROR_MESSAGES_2 : &[&str] = &[
-    "Invalid value",
-    "Invalid device type",
-    "Invalid platform",
-    "Invalid device",
-    "Invalid context",
-    "Invalid queue properties",
-    "Invalid command queue",
-    "Invalid host pointer",
-    "Invalid memory object",
-    "Invalid image format descriptor",
-    "Invalid image size",
-    "Invalid sampler",
-    "Invalid binary",
-    "Invalid build options",
-    "Invalid program",
-    "Invalid program executable",
-    "Invalid kernel name",
-    "Invalid kernel definition",
-    "Inavlid argument index",
-    "Invalid argument value",
-    "Invalid argument size",
-    "Invalid kernel arguments",
-    "Invalid work dimension",
-    "Invalid work group size",
-    "Invalid work item size",
-    "Invalid global offset",
-    "Invalid event wait list",
-    "Invalid event",
-    "Invalid operation",
-    "Invalid gl object",
-    "Invalid buffer size",
-    "Invalid mip level",
-    "Invalid global work size",
-    "Invalid property",
-    "Invalid image descriptor",
-    "Invalid compiler options",
-    "Invalid linker options",
-    "Invalid device partiton count",
-    "Invalid pipe size",
-    "Invalid device queue"
-];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
@@ -143,15 +78,7 @@ impl error_stack::Context for Error {}
 impl Display for Error {
     #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let int = -(*self as i32) as usize;
-        let msg = match int {
-            1..=19 => ERROR_MESSAGES_1[int - 1],
-            30..=70 => ERROR_MESSAGES_2[int - 30],
-            9999 => "Invalid buffer read/write",
-            _ => unsafe { unreachable_unchecked() }
-        };
-
-        msg.fmt(f)
+        Debug::fmt(&self, f)
     }
 }
 

@@ -8,7 +8,7 @@ use crate::prelude::{Platform, Device, Result};
 use alloc::format;
 
 /// OpenCL context
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct Context (pub(crate) cl_context);
 

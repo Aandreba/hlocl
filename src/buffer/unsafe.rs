@@ -1,6 +1,6 @@
 use core::{ptr::{NonNull}, marker::PhantomData, mem::{MaybeUninit, ManuallyDrop}, ops::{RangeBounds, Bound}, fmt::Debug, ffi::c_void};
 use alloc::{vec::{Vec, IntoIter}, boxed::Box};
-use opencl_sys::{cl_mem, clReleaseMemObject, clCreateBuffer, cl_mem_info, clGetMemObjectInfo, CL_MEM_FLAGS, CL_MEM_SIZE, CL_MEM_HOST_PTR, CL_MEM_MAP_COUNT, CL_MEM_REFERENCE_COUNT, CL_MEM_CONTEXT, CL_MEM_ASSOCIATED_MEMOBJECT, CL_MEM_OFFSET};
+use opencl_sys::{cl_mem, clReleaseMemObject, clCreateBuffer, cl_mem_info, clGetMemObjectInfo, CL_MEM_FLAGS, CL_MEM_SIZE, CL_MEM_HOST_PTR, CL_MEM_MAP_COUNT, CL_MEM_REFERENCE_COUNT, CL_MEM_CONTEXT, CL_MEM_OFFSET, clRetainContext};
 use crate::{prelude::{Result, Context, Error, CommandQueue, EMPTY}, event::{ReadBuffer, BaseEvent, WriteBuffer, Event, CopyBuffer, various::{Then, Map}}};
 use super::{MemFlag};
 
@@ -112,16 +112,19 @@ impl<T: Copy + Unpin> MemBuffer<T> {
     /// Return context specified when memory object is created.
     #[inline(always)]
     pub fn context (&self) -> Result<Context> {
-        self.get_info(CL_MEM_CONTEXT)
+        let ctx : Context = self.get_info(CL_MEM_CONTEXT)?;
+        unsafe { tri_panic!(clRetainContext(ctx.0)); }
+        Ok(ctx)
     }
 
+    /*
     /// Return memory object from which memobj is created. 
     #[inline(always)]
     pub fn parent (&self) -> Result<Option<MemBuffer<T>>> {
         let id = self.get_info::<cl_mem>(CL_MEM_ASSOCIATED_MEMOBJECT)?;
         if id.is_null() { return Ok(None); }
         Ok(Some(MemBuffer(id, PhantomData)))
-    }
+    }*/
 
     #[inline(always)]
     pub fn offset (&self) -> Result<usize> {
@@ -272,9 +275,10 @@ impl<T: Copy + Unpin> MemBuffer<T> {
         self.read_into_with_queue(queue, offset, dst, wait)
     }
 
+    #[cfg(feature = "def")]
     #[inline(always)]
-    pub fn write<'a> (&mut self, queue: &CommandQueue, offset: usize, src: &'a [T], wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<WriteBuffer<'a, '_>> {
-        WriteBuffer::new(queue, false, offset, src, self, wait)
+    pub fn write<'a> (&mut self, offset: usize, src: &'a [T], wait: impl IntoIterator<Item = impl AsRef<BaseEvent>>) -> Result<WriteBuffer<'a, '_>> {
+        self.write_with_queue(CommandQueue::default(), offset, src, wait)
     }
 
     #[inline(always)]

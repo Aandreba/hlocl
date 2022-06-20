@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use opencl_sys::{CL_COMMAND_NDRANGE_KERNEL, CL_COMMAND_TASK, CL_COMMAND_NATIVE_KERNEL, CL_COMMAND_READ_BUFFER, CL_COMMAND_WRITE_BUFFER, CL_COMMAND_COPY_BUFFER, CL_COMMAND_READ_IMAGE, CL_COMMAND_WRITE_IMAGE, CL_COMMAND_COPY_IMAGE, CL_COMMAND_COPY_IMAGE_TO_BUFFER, CL_COMMAND_COPY_BUFFER_TO_IMAGE, CL_COMMAND_MAP_BUFFER, CL_COMMAND_MAP_IMAGE, CL_COMMAND_UNMAP_MEM_OBJECT, CL_COMMAND_MARKER, CL_COMMAND_ACQUIRE_GL_OBJECTS, CL_COMMAND_RELEASE_GL_OBJECTS, CL_COMPLETE, CL_RUNNING, CL_SUBMITTED, CL_QUEUED};
-use crate::prelude::{Result, CommandQueue};
+use crate::{prelude::{Result, CommandQueue}};
 use self::various::{Map, Swap, Then};
 
 flat_mod!(base, user, buffer);
@@ -14,6 +14,19 @@ pub trait Event: Sized + Unpin + AsRef<BaseEvent> + futures::Future<Output = cra
 
     fn wait (self) -> Result<Self::Result>;
     fn wait_all (iter: impl IntoIterator<Item = Self>) -> Result<Vec<Self::Result>>;
+
+    /// # Panic
+    /// This method panics if ```wait_all``` doesn't return a vector of the same size as the input.
+    #[inline(always)]
+    fn wait_all_array<const N: usize> (iter: [Self; N]) -> Result<[Self::Result; N]> {
+        let all = Self::wait_all(iter)?;
+        let all = match TryInto::<[Self::Result; N]>::try_into(all) {
+            Ok(x) => x,
+            Err(e) => panic!("Returned vector is not the same size as the input: expected {N}, got {}", e.len())
+        };
+
+        Ok(all)
+    }
 
     #[inline(always)]
     fn command_queue (&self) -> Result<CommandQueue> {

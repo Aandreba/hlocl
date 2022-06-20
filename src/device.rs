@@ -352,8 +352,9 @@ impl Device {
         self.get_info_bits(CL_DEVICE_QUEUE_PROPERTIES)
     }
 
+    #[cfg(feature = "cl2")]
     #[inline(always)]
-    pub fn reference_count (&self) -> Result<usize> {
+    pub fn reference_count (&self) -> Result<u32> {
         self.get_info_bits(CL_DEVICE_REFERENCE_COUNT)
     }
 
@@ -545,57 +546,11 @@ impl Clone for Device {
 impl Debug for Device {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Device")
+        .field("id", &self.0)
         .field("name", &self.name())
         .field("vendor", &self.vendor())
-        .field("vendor_id", &self.vendor_id())
-        .field("profile", &self.profile())
-        .field("version", &self.version_string())
-        .field("driver_version", &self.driver_version_string())
-        .field("extensions", &self.extensions())
-        .field("address_bits", &self.address_bits())
-        .field("available", &self.available())
-        .field("double_fp_config", &self.double_fp_config())
-        .field("endian_little", &self.endian_little())
-        .field("error_correction_support", &self.error_connection_support())
-        .field("execution_capabilities", &self.execution_capabilities())
-        .field("global_mem_cache_size", &self.global_mem_cache_size())
-        .field("global_mem_cache_type", &self.global_mem_cache_type())
-        .field("global_mem_cacheline_size", &self.global_mem_cahceline_size())
-        .field("global_mem_size", &self.global_mem_size())
-        .field("image_support", &self.image_support())
-        .field("image2d_max_height", &self.image2d_max_height())
-        .field("image2d_max_width", &self.image2d_max_width())
-        .field("image3d_max_depth", &self.image3d_max_depth())
-        .field("image3d_max_height", &self.image3d_max_height())
-        .field("image3d_max_width", &self.image3d_max_width())
-        .field("local_mem_size", &self.local_mem_size())
-        .field("local_mem_type", &self.local_mem_type())
-        .field("max_clock_frequency", &self.max_clock_frequency())
-        .field("max_compute_units", &self.max_compute_units())
-        .field("max_constant_args", &self.max_constant_args())
-        .field("max_constant_buffer_size", &self.max_constant_buffer_size())
-        .field("max_mem_alloc_size", &self.max_mem_alloc_size())
-        .field("max_parameter_size", &self.max_parameter_size())
-        .field("max_read_image_args", &self.max_read_image_args())
-        .field("max_samplers", &self.max_samplers())
-        .field("max_work_group_size", &self.max_work_group_size())
-        .field("max_work_item_dimensions", &self.max_work_item_dimensions())
-        .field("max_work_item_sizes", &self.max_work_item_sizes())
-        .field("max_write_image_args", &self.max_write_image_args())
-        .field("mem_base_addr_align", &self.mem_base_addr_align())
-        .field("min_data_type_align_size", &self.min_data_type_align_size())
-        .field("preferred_vector_width_char", &self.preferred_vector_width_char())
-        .field("preferred_vector_width_double", &self.preferred_vector_width_double())
-        .field("preferred_vector_width_float", &self.preferred_vector_width_float())
-        .field("preferred_vector_width_int", &self.preferred_vector_width_int())
-        .field("preferred_vector_width_long", &self.preferred_vector_width_long())
-        .field("preferred_vector_width_short", &self.preferred_vector_width_short())
-        .field("profile", &self.profile())
-        .field("profiling_timer_resolution", &self.profiling_timer_resolution())
-        .field("queue_properties", &self.queue_properties())
-        .field("single_fp_config", &self.single_fp_config())
         .field("type", &self.ty())
-        .field("version", &self.version_string())
+        .field("version", &self.version())
         .finish()
     }
 }
