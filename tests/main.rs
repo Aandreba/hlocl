@@ -6,12 +6,25 @@ static PROGRAM : &str = "void kernel add (const ulong n, __global const float* r
     }
 }";
 
-#[test]
 fn main () -> Result<()> {
-    let alpha = FastRng
+    let alpha = FastRng::random_f32(0., 1., 10, MemFlag::default(), EMPTY)?;
+    let beta = FastRng::random_f32(0., 1., 10, MemFlag::default(), EMPTY)?;
+    let gamma = unsafe { MemBuffer::<f32>::uninit(10, MemFlag::WRITE_ONLY) }?;
 
-    let prog = Program::from_source_with_context(&ctx, PROGRAM)?;
+    let [alpha, beta] = Swap::wait_all_array([alpha, beta])?;
+    println!("{alpha:?} + {beta:?}");
 
-    //panic!("{:?}", ctx.reference_count());
+    let prog = Program::from_source(PROGRAM)?;
+    let mut kernel = unsafe { Kernel::new_unchecked(&prog, "add")? };
+
+    kernel.set_arg(0, 10u64)?;
+    kernel.set_mem_arg(1, &alpha)?;
+    kernel.set_mem_arg(2, &beta)?;
+    kernel.set_mem_arg(3, &gamma)?;
+
+    let evt = kernel.enqueue(&[10, 1, 1], None, EMPTY)?;
+    let gamma = gamma.to_vec([evt])?.wait()?;
+    println!("{gamma:?}");
+
     Ok(())
 }

@@ -1,5 +1,5 @@
 use core::{sync::atomic::{AtomicUsize, Ordering}, ops::{Deref, DerefMut}};
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use crate::{prelude::{Context, Device, Result, CommandQueue}, context::ContextProps, queue::CommandQueueProps};
 
 #[cfg(feature = "def")]
@@ -7,10 +7,11 @@ lazy_static! {
     static ref MANAGER: ContextManager = ContextManager::new(Device::all(), None, None).expect("Error initializing ContextManager");
 }
 
+/// A manager for an OpenCL context and it's command queues
 pub struct ContextManager {
     ctx: Context,
     idx: AtomicUsize,
-    queues: Vec<CommandQueue>
+    queues: Box<[CommandQueue]>
 }
 
 impl ContextManager {
@@ -26,7 +27,7 @@ impl ContextManager {
         Ok(Self {
             ctx,
             idx: AtomicUsize::new(0),
-            queues
+            queues: queues.into_boxed_slice()
         })
     }
 
