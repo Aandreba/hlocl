@@ -6,6 +6,7 @@ static PROGRAM : &str = "void kernel add (const ulong n, __global const float* r
     }
 }";
 
+#[test]
 fn main () -> Result<()> {
     let alpha = FastRng::random_f32(0., 1., 10, MemFlag::default(), EMPTY)?;
     let beta = FastRng::random_f32(0., 1., 10, MemFlag::default(), EMPTY)?;

@@ -53,7 +53,7 @@ impl FastRng {
     pub fn with_seeds_context (ctx: &Context, seeds: &[u64]) -> Result<Self> {
         let devices = ctx.devices()?;
         let seeds = MemBuffer::with_context(ctx, MemFlag::default(), seeds)?;
-        let program = Program::from_source_with_context(ctx, include_str!("../../kernels/fast_rand_cl1.ocl"))?;
+        let program = Program::from_source_with_context(ctx, include_str!("fast_rand.ocl"))?;
 
         let rand_byte = unsafe { Kernel::new_unchecked(&program, "rand_byte")? };
         let rand_short = unsafe { Kernel::new_unchecked(&program, "rand_short")? };
@@ -137,7 +137,7 @@ impl FastRng {
         #[cfg(feature = "error-stack")]
         let kernel = self.rand_double.as_ref().ok_or(error_stack::Report::new(Error::InvalidCompilerOptions).attach_printable("Double precision is not supported on this context"))?;
         #[cfg(not(feature = "error-stack"))]
-        self.rand_double.ok_or(Error::InvalidCompilerOptions)?;
+        let kernel = self.rand_double.as_ref().ok_or(Error::InvalidCompilerOptions)?;
 
         let seeds_len = self.seeds.len()?;
         let max_wgs = queue.device()?.max_work_group_size()?.get();

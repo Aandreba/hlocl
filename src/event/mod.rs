@@ -71,6 +71,19 @@ pub trait Event: Sized + AsRef<BaseEvent> {
     fn wait (self) -> Result<Self::Result>;
     fn wait_all (iter: impl IntoIterator<Item = Self>) -> Result<Vec<Self::Result>>;
 
+    /// # Panic
+    /// This method panics if ```wait_all``` doesn't return a vector of the same size as the input.
+    #[inline(always)]
+    fn wait_all_array<const N: usize> (iter: [Self; N]) -> Result<[Self::Result; N]> {
+        let all = Self::wait_all(iter)?;
+        let all = match TryInto::<[Self::Result; N]>::try_into(all) {
+            Ok(x) => x,
+            Err(e) => panic!("Returned vector is not the same size as the input: expected {N}, got {}", e.len())
+        };
+
+        Ok(all)
+    }
+
     #[inline(always)]
     fn command_queue (&self) -> Result<CommandQueue> {
         BaseEvent::command_queue(self.borrow_base())

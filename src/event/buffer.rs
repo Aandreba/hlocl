@@ -1,8 +1,11 @@
 use core::{marker::PhantomData};
-use alloc::{vec::Vec, format};
+use alloc::{vec::Vec};
 use opencl_sys::{cl_event, clEnqueueWriteBuffer, clEnqueueCopyBuffer, clEnqueueReadBuffer};
 use crate::{prelude::{Result, Error, CommandQueue}, buffer::{MemBuffer}};
 use super::{BaseEvent, Event};
+
+#[cfg(feature = "error-stack")]
+use alloc::format;
 
 /// OpenCL event that reads from one buffer to another 
 #[repr(transparent)]

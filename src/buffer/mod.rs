@@ -1,4 +1,4 @@
-flat_mod!(io, flags, r#unsafe);
+flat_mod!(flags, base);
 
 #[cfg(feature = "serde")]
 flat_mod!(ser_de);

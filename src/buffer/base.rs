@@ -1,14 +1,14 @@
 use core::{ptr::{NonNull}, marker::PhantomData, mem::{MaybeUninit, ManuallyDrop}, ops::{RangeBounds, Bound}, fmt::Debug, ffi::c_void};
 use alloc::{vec::{Vec, IntoIter}, boxed::Box};
 use opencl_sys::{cl_mem, clReleaseMemObject, clCreateBuffer, cl_mem_info, clGetMemObjectInfo, CL_MEM_FLAGS, CL_MEM_SIZE, CL_MEM_HOST_PTR, CL_MEM_MAP_COUNT, CL_MEM_REFERENCE_COUNT, CL_MEM_CONTEXT, CL_MEM_OFFSET, clRetainContext};
+use parking_lot::RawRwLock;
 use crate::{prelude::{Result, Context, Error, CommandQueue, EMPTY}, event::{ReadBuffer, BaseEvent, WriteBuffer, Event, CopyBuffer, various::{Then, Map}}};
 use super::{MemFlag};
 
 #[cfg(feature = "error-stack")]
 use alloc::format;
 
-#[repr(transparent)]
-pub struct MemBuffer<T: 'static + Copy + Unpin> (pub(crate) cl_mem, pub(super) PhantomData<T>); 
+pub struct MemBuffer<T: 'static + Copy + Unpin> (pub(crate) cl_mem, pub(crate) RawRwLock, pub(super) PhantomData<T>); 
 
 impl<T: Copy + Unpin> MemBuffer<T> {
     #[cfg(feature = "def")]
@@ -45,7 +45,7 @@ impl<T: Copy + Unpin> MemBuffer<T> {
         let id = clCreateBuffer(ctx.0, flags.bits(), size, host_ptr, &mut err);
 
         if err == 0 {
-            return Ok(Self(id, PhantomData));
+            return Ok(Self(id, parking_lot::lock_api::RawRwLock::INIT, PhantomData));
         }
 
         cfg_if::cfg_if! {
@@ -135,7 +135,7 @@ impl<T: Copy + Unpin> MemBuffer<T> {
     pub unsafe fn transmute<O: Copy + Unpin> (self) -> MemBuffer<O> {
         debug_assert_eq!(core::mem::size_of::<T>(), core::mem::size_of::<O>());
         let me = ManuallyDrop::new(self);
-        MemBuffer(me.0, PhantomData)
+        MemBuffer(me.0, me.1, PhantomData)
     }
 
     #[cfg(feature = "def")]

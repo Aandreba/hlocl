@@ -1,17 +1,18 @@
 #[cfg(test)]
 extern crate std;
 
+flat_mod!(flags, builder);
+
 use core::{mem::MaybeUninit, ptr::addr_of};
 use alloc::{string::{String}, vec::Vec};
-use opencl_sys::{cl_kernel, clReleaseKernel, clCreateKernel, clGetKernelInfo, cl_kernel_info, CL_KERNEL_FUNCTION_NAME, CL_KERNEL_NUM_ARGS, CL_KERNEL_REFERENCE_COUNT, CL_KERNEL_CONTEXT, CL_KERNEL_PROGRAM, clSetKernelArg, cl_kernel_arg_info, CL_KERNEL_ARG_ADDRESS_GLOBAL, CL_KERNEL_ARG_ADDRESS_LOCAL, CL_KERNEL_ARG_ADDRESS_CONSTANT, CL_KERNEL_ARG_ADDRESS_PRIVATE, CL_KERNEL_ARG_ADDRESS_QUALIFIER, CL_KERNEL_ARG_ACCESS_READ_ONLY, CL_KERNEL_ARG_ACCESS_WRITE_ONLY, CL_KERNEL_ARG_ACCESS_READ_WRITE, CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_ACCESS_QUALIFIER, clGetKernelArgInfo, CL_KERNEL_ARG_NAME, CL_KERNEL_ARG_TYPE_NAME, CL_KERNEL_ARG_TYPE_CONST, CL_KERNEL_ARG_TYPE_RESTRICT, CL_KERNEL_ARG_TYPE_VOLATILE, CL_KERNEL_ARG_TYPE_QUALIFIER, clEnqueueNDRangeKernel, cl_mem, cl_kernel_arg_type_qualifier, clRetainContext, clRetainProgram};
+use opencl_sys::{cl_kernel, clReleaseKernel, clCreateKernel, clGetKernelInfo, cl_kernel_info, CL_KERNEL_FUNCTION_NAME, CL_KERNEL_NUM_ARGS, CL_KERNEL_REFERENCE_COUNT, CL_KERNEL_CONTEXT, CL_KERNEL_PROGRAM, clSetKernelArg, cl_kernel_arg_info, CL_KERNEL_ARG_ADDRESS_QUALIFIER, CL_KERNEL_ARG_ACCESS_QUALIFIER, clGetKernelArgInfo, CL_KERNEL_ARG_NAME, CL_KERNEL_ARG_TYPE_NAME, CL_KERNEL_ARG_TYPE_QUALIFIER, clEnqueueNDRangeKernel, cl_mem, clRetainContext, clRetainProgram};
+use parking_lot::{RawMutex};
 use crate::{prelude::{Error, Program, Context, CommandQueue, BaseEvent}, error::Result, buffer::MemBuffer};
 
 #[cfg(feature = "error-stack")]
 use alloc::format;
 
-#[derive(PartialEq, Eq, Hash)]
-#[repr(transparent)]
-pub struct Kernel (pub(crate) cl_kernel);
+pub struct Kernel (pub(crate) cl_kernel, pub(super) RawMutex);
 
 impl Kernel {
     /// Creates a new kernel from a program and a name.
@@ -24,7 +25,7 @@ impl Kernel {
         
         let mut err = 0;
         let id = clCreateKernel(program.0, name.as_ptr().cast(), &mut err);
-        if err == 0 { return Ok(Self(id)); }
+        if err == 0 { return Ok(Self(id, parking_lot::lock_api::RawMutex::INIT)); }
 
         cfg_if::cfg_if! {
             if #[cfg(feature = "error-stack")] {
@@ -49,19 +50,19 @@ impl Kernel {
     }
 
     #[inline(always)]
-    pub fn set_arg<T: Copy> (&mut self, idx: u32, v: T) -> Result<()> {
+    fn set_arg<T: Copy> (&mut self, idx: u32, v: T) -> Result<()> {
         let err = unsafe { clSetKernelArg(self.0, idx, core::mem::size_of::<T>(), addr_of!(v).cast()) };
         self.parse_error_set_arg(err, idx, core::mem::size_of::<T>())
     }
 
     #[inline(always)]
-    pub fn set_mem_arg<T: Copy + Unpin> (&mut self, idx: u32, v: &MemBuffer<T>) -> Result<()> {
+    fn set_mem_arg<T: Copy + Unpin> (&mut self, idx: u32, v: &MemBuffer<T>) -> Result<()> {
         let err = unsafe { clSetKernelArg(self.0, idx, core::mem::size_of::<cl_mem>(), addr_of!(v.0).cast()) };
         self.parse_error_set_arg(err, idx, core::mem::size_of::<cl_mem>())
     }
 
     #[inline(always)]
-    pub fn alloc_arg<T> (&mut self, idx: u32, len: usize) -> Result<()> {
+    fn alloc_arg<T> (&mut self, idx: u32, len: usize) -> Result<()> {
         let arg_size = len.checked_mul(core::mem::size_of::<T>()).expect("Kernel argument size overflow");
         let err = unsafe { clSetKernelArg(self.0, idx, arg_size, core::ptr::null_mut()) };
         self.parse_error_set_arg(err, idx, arg_size)
@@ -343,44 +344,3 @@ impl Drop for Kernel {
 
 unsafe impl Send for Kernel {}
 unsafe impl Sync for Kernel {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(u32)]
-pub enum AddrQualifier {
-    Global = CL_KERNEL_ARG_ADDRESS_GLOBAL,
-    Local = CL_KERNEL_ARG_ADDRESS_LOCAL,
-    Constant = CL_KERNEL_ARG_ADDRESS_CONSTANT,
-    Private = CL_KERNEL_ARG_ADDRESS_PRIVATE
-}
-
-impl Default for AddrQualifier {
-    #[inline(always)]
-    fn default() -> Self {
-        Self::Private
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(u32)]
-pub enum AccessQualifier {
-    ReadOnly = CL_KERNEL_ARG_ACCESS_READ_ONLY,
-    WriteOnly = CL_KERNEL_ARG_ACCESS_WRITE_ONLY,
-    ReadWrite = CL_KERNEL_ARG_ACCESS_READ_WRITE,
-    None = CL_KERNEL_ARG_ACCESS_NONE
-}
-
-bitflags::bitflags! {
-    #[repr(transparent)]
-    pub struct TypeQualifier: cl_kernel_arg_type_qualifier {
-        const CONST = CL_KERNEL_ARG_TYPE_CONST;
-        const RESTRICT = CL_KERNEL_ARG_TYPE_RESTRICT;
-        const VOLATILE = CL_KERNEL_ARG_TYPE_VOLATILE;
-    }
-}
-
-impl Default for TypeQualifier {
-    #[inline(always)]
-    fn default() -> Self {
-        Self::empty()
-    }
-}
